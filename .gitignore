@@ -19,3 +19,4 @@ temp.errors
 *.ini
 .d/
 .DS_Store
+project.pros
