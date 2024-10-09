@@ -1,32 +1,330 @@
 #include "main.h"
 
-/**
- * A callback function for LLEMU's center button.
- *
- * When this callback is fired, it will toggle line 2 of the LCD text between
- * "I was pressed!" and nothing.
- */
-void on_center_button() {
-	static bool pressed = false;
-	pressed = !pressed;
-	if (pressed) {
-		pros::lcd::set_text(2, "I was pressed!");
-	} else {
-		pros::lcd::clear_line(2);
-	}
-}
+#include "lemlib/api.hpp"
+#include "lemlib/util.hpp"
+#include "subsystems/rollerintake.hpp"
+#include "subsystems/indexer.hpp"
+#include "subsystems/climb.hpp"
 
+#define QUAL_AUTO
+// #define MATCH_AUTO
+
+// #define ARCADE
+#define TANK
+
+enum class RobotState
+{
+	Driving,
+	Intaking,
+	Climbing
+};
+
+bool auto_climb_state = false;
+
+constexpr int8_t FRONT_LEFT_PORT = 1;
+constexpr int8_t MIDDLE_FRONT_LEFT_PORT = 2;
+constexpr int8_t MIDDLE_BACK_LEFT_PORT = 15;
+constexpr int8_t BACK_LEFT_PORT = 13;
+constexpr int8_t FRONT_RIGHT_PORT = 10;
+constexpr int8_t MIDDLE_FRONT_RIGHT_PORT = 9;
+constexpr int8_t MIDDLE_BACK_RIGHT_PORT = 16;
+constexpr int8_t BACK_RIGHT_PORT = 18;
+
+constexpr int8_t INTAKE_PORT = 6;
+
+constexpr int8_t CLIMB_1_PORT = 11;
+constexpr int8_t CLIMB_2_PORT = 20;
+
+constexpr int8_t HORIZONTAL_POD_PORT = 14;
+constexpr int8_t VERTICAL_POD_PORT = 17;
+constexpr int8_t GYRO_PORT = 5;
+constexpr int8_t BALL_DISTANCE_PORT = 3;
+
+constexpr double TRACK_WIDTH = 12;
+constexpr double WHEEL_DIAMETER = 3;
+constexpr double DRIVE_RPM = 600;
+constexpr double CHASE_POWER = 2;
+
+constexpr int32_t BALL_PRESENT_DISTANCE = 150;
+constexpr int INTAKE_INTAKING_DIRECTION = 1;
+
+constexpr double ODOM_WHEEL_DIAMETER = 2;
+constexpr double HORIZONTAL_WHEEL_DISTANCE = 1.5625;
+constexpr double VERTICAL_WHEEL_DISTANCE = -4.0625;
+
+constexpr char BACK_LEFT_SOLENOID = 'B';
+constexpr char BACK_RIGHT_SOLENOID = 'A';
+constexpr char FRONT_LEFT_SOLENOID = 'C';
+constexpr char FRONT_RIGHT_SOLENOID = 'D';
+constexpr char ODOMETRY_SOLENOID = 'E';
+
+pros::Controller driver(pros::controller_id_e_t::E_CONTROLLER_MASTER);
+
+RobotState robotState = RobotState::Driving;
+
+pros::adi::DigitalOut back_right_solenoid(BACK_RIGHT_SOLENOID);
+pros::adi::DigitalOut back_left_solenoid(BACK_LEFT_SOLENOID);
+pros::adi::DigitalOut front_right_solenoid(FRONT_RIGHT_SOLENOID);
+pros::adi::DigitalOut front_left_solenoid(FRONT_LEFT_SOLENOID);
+pros::adi::DigitalOut odometry_solenoid(ODOMETRY_SOLENOID);
+
+pros::MotorGroup leftSide({FRONT_LEFT_PORT, MIDDLE_FRONT_LEFT_PORT, MIDDLE_BACK_LEFT_PORT, -BACK_LEFT_PORT});
+pros::MotorGroup rightSide({-FRONT_RIGHT_PORT, -MIDDLE_FRONT_RIGHT_PORT, -MIDDLE_BACK_RIGHT_PORT, BACK_RIGHT_PORT});
+pros::MotorGroup riGroup({INTAKE_PORT});
+pros::MotorGroup climbGroup({-CLIMB_1_PORT, CLIMB_2_PORT});
+
+// SENSORS
+pros::Rotation horizontalPod(HORIZONTAL_POD_PORT);
+pros::Rotation verticalPod(-VERTICAL_POD_PORT);
+pros::IMU gyro(GYRO_PORT);
+pros::Distance ballDistance(BALL_DISTANCE_PORT);
+
+// LEMLIB STRUCTURES
+
+lemlib::TrackingWheel horizontalWheel(&horizontalPod, ODOM_WHEEL_DIAMETER, HORIZONTAL_WHEEL_DISTANCE);
+lemlib::TrackingWheel verticalWheel(&verticalPod, ODOM_WHEEL_DIAMETER, VERTICAL_WHEEL_DISTANCE);
+
+lemlib::Drivetrain LLDrivetrain(
+	&leftSide,
+	&rightSide,
+	TRACK_WIDTH,
+	WHEEL_DIAMETER,
+	DRIVE_RPM,
+	CHASE_POWER);
+
+lemlib::ControllerSettings linearController(
+	10,	 // proportional gain (kP)
+	0,	 // integral gain (kI)
+	120, // derivative gain (kD)
+	3,	 // anti windup
+	1,	 // small error range, in inches
+	100, // small error range timeout, in milliseconds
+	3,	 // large error range, in inches
+	500, // large error range timeout, in milliseconds
+	10	 // maximum acceleration (slew)
+);
+
+lemlib::ControllerSettings angularController(
+	2,	 // proportional gain (kP)
+	0,	 // integral gain (kI)
+	10,	 // derivative gain (kD)
+	3,	 // anti windup
+	1,	 // small error range, in degrees
+	100, // small error range timeout, in milliseconds
+	3,	 // large error range, in degrees
+	500, // large error range timeout, in milliseconds
+	0	 // maximum acceleration (slew)
+);
+
+lemlib::OdomSensors sensors(
+	&verticalWheel,
+	nullptr,
+	&horizontalWheel,
+	nullptr,
+	&gyro);
+
+lemlib::Chassis chassis(LLDrivetrain, linearController, angularController, sensors);
+
+RollerIntake ri(riGroup);
+Indexer ind(back_right_solenoid, back_left_solenoid, front_right_solenoid, front_left_solenoid, odometry_solenoid);
+Climb climb(climbGroup);
 /**
  * Runs initialization code. This occurs as soon as the program is started.
  *
  * All other competition modes are blocked by initialize; it is recommended
  * to keep execution time for this mode under a few seconds.
  */
-void initialize() {
-	pros::lcd::initialize();
-	pros::lcd::set_text(1, "Hello PROS User!");
 
-	pros::lcd::register_btn1_cb(on_center_button);
+const char *toString(RobotState state)
+{
+	switch (state)
+	{
+	case RobotState::Driving:
+		return "Driving";
+	case RobotState::Intaking:
+		return "Intaking";
+	case RobotState::Climbing:
+		return "Climbing";
+	default:
+		return "Unknown State";
+	}
+}
+
+void setcurrentstate(RobotState state)
+{
+
+	if (state == RobotState::Driving)
+	{
+		leftSide.set_current_limit_all(2500);
+		rightSide.set_current_limit_all(2500);
+		riGroup.set_current_limit_all(0);
+		climbGroup.set_current_limit_all(0);
+	}
+
+	if (state == RobotState::Intaking)
+	{
+		leftSide.set_current_limit_all(2200);
+		rightSide.set_current_limit_all(2200);
+		riGroup.set_current_limit_all(2400);
+		climbGroup.set_current_limit_all(0);
+	}
+
+	if (state == RobotState::Climbing)
+	{
+		riGroup.set_current_limit_all(0);
+		climbGroup.set_current_limit_all(2500);
+		leftSide.set_current_limit_all(1875);
+		rightSide.set_current_limit_all(1875);
+	}
+}
+
+void initialize()
+{
+	pros::lcd::initialize();
+	chassis.calibrate();
+
+	leftSide.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_BRAKE);
+	rightSide.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_BRAKE);
+
+	pros::Task screenTask([&]()
+						  {
+    chassis.setPose({0, 0, 0});
+        while (true) {
+            pros::lcd::print(0, "X: %f", chassis.getPose().x); // x
+            pros::lcd::print(1, "Y: %f", chassis.getPose().y); // y
+            pros::lcd::print(2, "Theta: %f", chassis.getPose().theta); // heading
+            pros::lcd::print(3, "J");
+#if defined(QUAL_AUTO)
+                pros::lcd::print(4, "QUAL");
+#elif defined(MATCH_AUTO)
+                pros::lcd::print(4, "MATCH");
+#endif
+            pros::lcd::print(5, "Robot State: %s", toString(robotState));        
+            lemlib::telemetrySink()->info("Chassis pose: {}", chassis.getPose());
+            pros::delay(50);
+        } });
+}
+
+void autoIntakeManager()
+{
+	while (!pros::competition::is_autonomous())
+	{
+		pros::delay(10);
+	}
+	while (pros::competition::is_autonomous())
+	{
+		if (ballDistance.get() < BALL_PRESENT_DISTANCE && riGroup.get_direction_all()[0] == INTAKE_INTAKING_DIRECTION)
+		{
+			riGroup.move(0);
+		}
+
+		pros::delay(10);
+	}
+}
+
+// Link to curve
+// https://www.desmos.com/calculator/umicbymbnl
+double deadband = 0;
+double minOutput = 0;
+float expCurve(float input, float curveGain)
+{
+	// return 0 if input is within deadzone
+	if (fabs(input) <= deadband)
+		return 0;
+	// g is the output of g(x) as defined in the Desmos graph
+	const float g = fabs(input) - deadband;
+	// g127 is the output of g(127) as defined in the Desmos graph
+	const float g127 = 127 - deadband;
+	// i is the output of i(x) as defined in the Desmos graph
+	const float i = pow(curveGain, g - 127) * g * lemlib::sgn(input);
+	// i127 is the output of i(127) as defined in the Desmos graph
+	const float i127 = pow(curveGain, g127 - 127) * g127;
+	return (127.0 - minOutput) / (127) * i * 127 / i127 + minOutput * lemlib::sgn(input);
+}
+
+void pollController()
+{
+	if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_L1))
+	{
+		if (robotState != RobotState::Intaking)
+		{
+			robotState = RobotState::Intaking;
+			setcurrentstate(robotState);
+		}
+		ri.spin(ri.STANDARD_MV);
+	}
+	else if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_L2))
+	{
+		if (robotState != RobotState::Intaking)
+		{
+			robotState = RobotState::Intaking;
+			setcurrentstate(robotState);
+		}
+		ri.spin(-ri.STANDARD_MV);
+	}
+	else
+	{
+		ri.spin(0);
+	}
+
+	if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_DOWN))
+	{
+		ind.openFrontLeft();
+	}
+	if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_B))
+	{
+		ind.openFrontRight();
+	}
+
+	if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R1))
+	{
+		ind.openBack();
+	}
+
+	if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_A))
+	{
+		if (robotState != RobotState::Climbing)
+		{
+			robotState = RobotState::Climbing;
+			setcurrentstate(robotState);
+		}
+		climb.moveClimb(-12000);
+	}
+	else if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_LEFT))
+	{
+		if (robotState != RobotState::Climbing)
+		{
+			robotState = RobotState::Climbing;
+			setcurrentstate(robotState);
+		}
+		climb.moveClimb(12000);
+	}
+	else if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R2))
+	{
+		if (robotState != RobotState::Climbing)
+		{
+			robotState = RobotState::Climbing;
+			setcurrentstate(robotState);
+		}
+		climb.deployClimb_J();
+		auto_climb_state = true;
+	}
+	else
+	{
+		climb.moveClimb(0);
+	}
+
+	if (!driver.get_digital(pros::E_CONTROLLER_DIGITAL_L1) &&
+		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_L2) &&
+		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_A) &&
+		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_LEFT))
+	{
+		if (robotState != RobotState::Driving)
+		{
+			robotState = RobotState::Driving;
+			setcurrentstate(robotState);
+		}
+	}
 }
 
 /**
@@ -47,6 +345,84 @@ void disabled() {}
  */
 void competition_initialize() {}
 
+ASSET(PB_M_1_txt);
+ASSET(PB_M_2_txt);
+ASSET(PB_M_3_txt);
+ASSET(PB_M_4_txt);
+ASSET(PB_M_3_1_txt);
+ASSET(PB_M_1_1_txt);
+
+ASSET(J_M_1_txt);
+ASSET(J_M_2_txt);
+
+ASSET(J_Q_1_txt);
+ASSET(J_Q_2_txt);
+ASSET(J_Q_3_txt);
+
+void qualJ()
+{
+	chassis.setPose({-15.5, -62, 90});
+
+	ri.spin(12000);
+
+	chassis.follow(J_Q_1_txt, 30, 4000);
+	pros::delay(4000);
+	leftSide.brake();
+	rightSide.brake();
+	pros::delay(500);
+}
+
+void matchJ()
+{
+	chassis.setPose({-34, -64, 0});
+	pros::delay(100);
+	chassis.moveToPoint(-34, -35, 3000);
+	pros::delay(3000);
+	chassis.turnToHeading(90, 2000);
+	pros::delay(2000);
+	chassis.moveToPoint(-25, -38, 2000);
+	pros::delay(2000);
+	pros::delay(21000);
+	chassis.moveToPoint(-65, -40, 2000, {false, 80});
+	pros::delay(2000);
+	chassis.turnToHeading(-30, 1000);
+	pros::delay(1000);
+	chassis.setPose({-54, -40.4, -30});
+	chassis.follow(J_M_1_txt, 30, 3500, {false});
+	pros::delay(3500);
+	chassis.setPose({36, -60.5, 260});
+	chassis.turnToHeading(225, 2000);
+	pros::delay(2000);
+	back_right_solenoid.set_value(1);
+	chassis.follow(J_M_2_txt, 20, 2500, {false});
+	pros::delay(2500);
+	chassis.turnToHeading(175, 1500);
+	pros::delay(1500);
+	back_left_solenoid.set_value(1);
+	pros::delay(250);
+	chassis.setPose({58, -36, 180});
+	chassis.moveToPoint(58, -12, 1000, {false, 127, 100});
+	pros::delay(1000);
+	chassis.moveToPoint(58, -36, 1000);
+	pros::delay(1000);
+	chassis.moveToPoint(58, -12, 1000, {false, 127, 100});
+	pros::delay(1000);
+	pros::delay(250);
+	back_left_solenoid.set_value(0);
+	back_right_solenoid.set_value(0);
+	chassis.setPose({0, 0, 0});
+	pros::delay(250);
+	chassis.moveToPoint(0, 15, 1000);
+	pros::delay(1000);
+	chassis.turnToHeading(45, 2000);
+	pros::delay(2000);
+	chassis.moveToPoint(15, 30, 2000);
+	pros::delay(2000);
+	chassis.turnToHeading(90, 2000);
+	pros::delay(2000);
+	chassis.moveToPoint(50, 30, 3000);
+	pros::delay(3000);
+}
 /**
  * Runs the user autonomous code. This function will be started in its own task
  * with the default priority and stack size whenever the robot is enabled via
@@ -58,7 +434,15 @@ void competition_initialize() {}
  * will be stopped. Re-enabling the robot will restart the task, not re-start it
  * from where it left off.
  */
-void autonomous() {}
+void autonomous()
+{
+	pros::Task intakeTask(autoIntakeManager);
+#if defined(QUAL_AUTO)
+	qualJ();
+#elif defined(MATCH_AUTO)
+	matchJ();
+#endif
+}
 
 /**
  * Runs the operator control code. This function will be started in its own task
@@ -73,22 +457,30 @@ void autonomous() {}
  * operator control task will be stopped. Re-enabling the robot will restart the
  * task, not resume it from where it left off.
  */
-void opcontrol() {
-	pros::Controller master(pros::E_CONTROLLER_MASTER);
-	pros::MotorGroup left_mg({1, -2, 3});    // Creates a motor group with forwards ports 1 & 3 and reversed port 2
-	pros::MotorGroup right_mg({-4, 5, -6});  // Creates a motor group with forwards port 5 and reversed ports 4 & 6
+void opcontrol()
+{
+	while (true)
+	{
+	std::vector<double> positions = climbGroup.get_position_all();
+	std::vector<double> targetPositions = climbGroup.get_target_position_all();
+		if (!auto_climb_state)
+			pollController();
+		else if (abs(positions[0] - targetPositions[0]) < 0.5)
+			auto_climb_state = false;
+		if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R2))
+		{
+			auto_climb_state = false;
+		}
+		int l = driver.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
+#if defined(ARCADE)
+		int r = driver.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
+		// r = expCurve(r, 1.015);
+		chassis.arcade(l, r);
+#elif defined(TANK)
+		int r = driver.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_Y);
+		chassis.tank(l, r);
+#endif
 
-
-	while (true) {
-		pros::lcd::print(0, "%d %d %d", (pros::lcd::read_buttons() & LCD_BTN_LEFT) >> 2,
-		                 (pros::lcd::read_buttons() & LCD_BTN_CENTER) >> 1,
-		                 (pros::lcd::read_buttons() & LCD_BTN_RIGHT) >> 0);  // Prints status of the emulated screen LCDs
-
-		// Arcade control scheme
-		int dir = master.get_analog(ANALOG_LEFT_Y);    // Gets amount forward/backward from left joystick
-		int turn = master.get_analog(ANALOG_RIGHT_X);  // Gets the turn left/right from right joystick
-		left_mg.move(dir - turn);                      // Sets left motor voltage
-		right_mg.move(dir + turn);                     // Sets right motor voltage
-		pros::delay(20);                               // Run for 20 ms then update
+		pros::delay(10);
 	}
 }
