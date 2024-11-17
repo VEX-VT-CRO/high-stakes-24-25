@@ -6,6 +6,8 @@
 #include "subsystems/rollerintake.hpp"
 #include "subsystems/indexer.hpp"
 #include "subsystems/climb.hpp"
+#include "subsystems/conveyorlift.hpp"
+#include "subsystems/conveyor.hpp"
 
 // Two major definitions for each bot
 #define QUAL_AUTO
@@ -27,23 +29,26 @@ enum class RobotState
 bool auto_climb_state = false;
 
 constexpr int8_t FRONT_LEFT_PORT = 1;
-constexpr int8_t MIDDLE_FRONT_LEFT_PORT = 2;
-constexpr int8_t MIDDLE_BACK_LEFT_PORT = 15;
+constexpr int8_t MIDDLE_LEFT_PORT = 2;
 constexpr int8_t BACK_LEFT_PORT = 13;
 constexpr int8_t FRONT_RIGHT_PORT = 10;
-constexpr int8_t MIDDLE_FRONT_RIGHT_PORT = 9;
-constexpr int8_t MIDDLE_BACK_RIGHT_PORT = 16;
+constexpr int8_t MIDDLE_RIGHT_PORT = 9;
 constexpr int8_t BACK_RIGHT_PORT = 18;
 
 constexpr int8_t INTAKE_PORT = 6;
 
-constexpr int8_t CLIMB_1_PORT = 11;
-constexpr int8_t CLIMB_2_PORT = 20;
+constexpr int8_t CONVEYOR_LIFT_1_PORT = 11;
+constexpr int8_t CONVEYOR_LIFT_2_PORT = 20;
+
+constexpr int8_t CONVEYOR_PORT = 7;
+
+// constexpr int8_t CLIMB_1_PORT = 11;
+// constexpr int8_t CLIMB_2_PORT = 20;
 
 constexpr int8_t HORIZONTAL_POD_PORT = 14;
 constexpr int8_t VERTICAL_POD_PORT = 17;
 constexpr int8_t GYRO_PORT = 5;
-constexpr int8_t BALL_DISTANCE_PORT = 3;
+// constexpr int8_t BALL_DISTANCE_PORT = 3;
 
 constexpr double TRACK_WIDTH = 12;
 constexpr double WHEEL_DIAMETER = 3;
@@ -67,22 +72,25 @@ pros::Controller driver(pros::controller_id_e_t::E_CONTROLLER_MASTER);
 RobotState robotState = RobotState::Driving;
 
 
+
 // MOTORS and PNEUMATICS
 pros::adi::DigitalOut bumper_right_solenoid(BUMBER_RIGHT_SOLENOID);
 pros::adi::DigitalOut bumper_left_solenoid(BUMPER_LEFT_SOLENOID);
 pros::adi::DigitalOut holder_right_solenoid(HOLDER_RIGHT_SOLENOID);
 pros::adi::DigitalOut holder_left_solenoid(HOLDER_LEFT_SOLENOID);
 
-pros::MotorGroup leftSide({FRONT_LEFT_PORT, MIDDLE_FRONT_LEFT_PORT, MIDDLE_BACK_LEFT_PORT, -BACK_LEFT_PORT});
-pros::MotorGroup rightSide({-FRONT_RIGHT_PORT, -MIDDLE_FRONT_RIGHT_PORT, -MIDDLE_BACK_RIGHT_PORT, BACK_RIGHT_PORT});
+pros::MotorGroup leftSide({FRONT_LEFT_PORT, MIDDLE_LEFT_PORT, BACK_LEFT_PORT});
+pros::MotorGroup rightSide({-FRONT_RIGHT_PORT, -MIDDLE_RIGHT_PORT, -BACK_RIGHT_PORT});
 pros::MotorGroup riGroup({INTAKE_PORT});
-pros::MotorGroup climbGroup({-CLIMB_1_PORT, CLIMB_2_PORT});
+pros::MotorGroup conveyorLiftGroup({CONVEYOR_LIFT_1_PORT, CONVEYOR_LIFT_2_PORT});
+pros::MotorGroup conveyorGroup({CONVEYOR_PORT});
+// pros::MotorGroup climbGroup({-CLIMB_1_PORT, CLIMB_2_PORT});
 
 // SENSORS
 pros::Rotation horizontalPod(HORIZONTAL_POD_PORT);
 pros::Rotation verticalPod(-VERTICAL_POD_PORT);
 pros::IMU gyro(GYRO_PORT);
-pros::Distance ballDistance(BALL_DISTANCE_PORT);
+// pros::Distance ballDistance(BALL_DISTANCE_PORT);
 
 // LEMLIB STRUCTURES
 
@@ -132,7 +140,9 @@ lemlib::Chassis chassis(LLDrivetrain, linearController, angularController, senso
 
 RollerIntake ri(riGroup);
 Indexer ind(bumper_right_solenoid, bumper_left_solenoid, holder_right_solenoid, holder_left_solenoid);
-Climb climb(climbGroup);
+// Climb climb(climbGroup);
+ConveyorLift conveyorlift(conveyorLiftGroup, 1);
+Conveyor conveyor(conveyorGroup);
 /**
  * Runs initialization code. This occurs as soon as the program is started.
  *
@@ -164,7 +174,7 @@ void setcurrentstate(RobotState state)
 		leftSide.set_current_limit_all(2500);
 		rightSide.set_current_limit_all(2500);
 		riGroup.set_current_limit_all(0);
-		climbGroup.set_current_limit_all(0);
+		// climbGroup.set_current_limit_all(0);
 	}
 
 	if (state == RobotState::Intaking)
@@ -172,13 +182,13 @@ void setcurrentstate(RobotState state)
 		leftSide.set_current_limit_all(2200);
 		rightSide.set_current_limit_all(2200);
 		riGroup.set_current_limit_all(2400);
-		climbGroup.set_current_limit_all(0);
+		// climbGroup.set_current_limit_all(0);
 	}
 
 	if (state == RobotState::Climbing)
 	{
 		riGroup.set_current_limit_all(0);
-		climbGroup.set_current_limit_all(2500);
+		// climbGroup.set_current_limit_all(2500);
 		leftSide.set_current_limit_all(1875);
 		rightSide.set_current_limit_all(1875);
 	}
@@ -219,10 +229,10 @@ void autoIntakeManager()
 	}
 	while (pros::competition::is_autonomous())
 	{
-		if (ballDistance.get() < BALL_PRESENT_DISTANCE && riGroup.get_direction_all()[0] == INTAKE_INTAKING_DIRECTION)
-		{
-			riGroup.move(0);
-		}
+		// if (ballDistance.get() < BALL_PRESENT_DISTANCE && riGroup.get_direction_all()[0] == INTAKE_INTAKING_DIRECTION)
+		// {
+		// 	riGroup.move(0);
+		// }
 
 		pros::delay(10);
 	}
@@ -282,7 +292,7 @@ void pollController()
 			robotState = RobotState::Climbing;
 			setcurrentstate(robotState);
 		}
-		climb.moveClimb(-12000);
+		// climb.moveClimb(-12000);
 	}
 	else if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_LEFT))
 	{
@@ -291,7 +301,7 @@ void pollController()
 			robotState = RobotState::Climbing;
 			setcurrentstate(robotState);
 		}
-		climb.moveClimb(12000);
+		// climb.moveClimb(12000);
 	}
 	else if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R2))
 	{
@@ -300,12 +310,12 @@ void pollController()
 			robotState = RobotState::Climbing;
 			setcurrentstate(robotState);
 		}
-		climb.deployClimb_J();
+		// climb.deployClimb_J();
 		auto_climb_state = true;
 	}
 	else
 	{
-		climb.moveClimb(0);
+		// climb.moveClimb(0);
 	}
 
 	if (!driver.get_digital(pros::E_CONTROLLER_DIGITAL_L1) &&
@@ -339,19 +349,7 @@ void disabled() {}
  */
 void competition_initialize() {}
 
-ASSET(PB_M_1_txt);
-ASSET(PB_M_2_txt);
-ASSET(PB_M_3_txt);
-ASSET(PB_M_4_txt);
-ASSET(PB_M_3_1_txt);
-ASSET(PB_M_1_1_txt);
-
 ASSET(J_M_1_txt);
-ASSET(J_M_2_txt);
-
-ASSET(J_Q_1_txt);
-ASSET(J_Q_2_txt);
-ASSET(J_Q_3_txt);
 
 void qualJ()
 {
@@ -405,12 +403,12 @@ void opcontrol()
 {
 	while (true)
 	{
-	std::vector<double> positions = climbGroup.get_position_all();
-	std::vector<double> targetPositions = climbGroup.get_target_position_all();
-		if (!auto_climb_state)
-			pollController();
-		else if (abs(positions[0] - targetPositions[0]) < 0.5)
-			auto_climb_state = false;
+	// std::vector<double> positions = climbGroup.get_position_all();
+	// std::vector<double> targetPositions = climbGroup.get_target_position_all();
+		// if (!auto_climb_state)
+		// 	pollController();
+		// else if (abs(positions[0] - targetPositions[0]) < 0.5)
+		// 	auto_climb_state = false;
 		if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R2))
 		{
 			auto_climb_state = false;
