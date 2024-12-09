@@ -47,6 +47,7 @@ constexpr int8_t CONVEYOR_PORT = 7;
 
 constexpr int8_t HORIZONTAL_POD_PORT = 14;
 constexpr int8_t VERTICAL_POD_PORT = 17;
+constexpr int8_t DISTANCE_SENSOR_PORT = 10;
 constexpr int8_t GYRO_PORT = 5;
 // constexpr int8_t BALL_DISTANCE_PORT = 3;
 
@@ -78,6 +79,7 @@ pros::adi::DigitalOut bumper_right_solenoid(BUMBER_RIGHT_SOLENOID);
 pros::adi::DigitalOut bumper_left_solenoid(BUMPER_LEFT_SOLENOID);
 pros::adi::DigitalOut holder_right_solenoid(HOLDER_RIGHT_SOLENOID);
 pros::adi::DigitalOut holder_left_solenoid(HOLDER_LEFT_SOLENOID);
+pros::Distance ring_sensor(DISTANCE_SENSOR_PORT);
 
 pros::MotorGroup leftSide({FRONT_LEFT_PORT, MIDDLE_LEFT_PORT, BACK_LEFT_PORT});
 pros::MotorGroup rightSide({-FRONT_RIGHT_PORT, -MIDDLE_RIGHT_PORT, -BACK_RIGHT_PORT});
@@ -192,6 +194,37 @@ void setcurrentstate(RobotState state)
 		leftSide.set_current_limit_all(1875);
 		rightSide.set_current_limit_all(1875);
 	}
+}
+
+void intake_rings_for_side_stakes()
+{
+	ri.spin(ri.STANDARD_MV);
+	bool ringPresent = false;
+	bool first_ring_on = false;
+	bool ready_to_rise = false;
+	if (ring_sensor.get() < 100)
+	{
+		ringPresent = true;
+	}
+	if (ringPresent)
+	{
+		if (!first_ring_on)
+		{
+			conveyor.move_to_location(conveyor.first_ring_location);
+			first_ring_on = true;
+		}
+		else
+		{
+			conveyor.move_to_location(conveyor.second_ring_location);
+			ri.spin(0);
+			ready_to_rise = true;
+		}
+	}
+	if(ready_to_rise)
+	{
+		conveyorlift.moveTo(ConveyorPosition::SIDE);
+	}
+
 }
 
 void initialize()
