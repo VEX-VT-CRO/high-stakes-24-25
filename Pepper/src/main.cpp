@@ -373,13 +373,44 @@ void qualJ()
 
 }
 
+void pickUpRing() {
+
+}
+
+void scoreRing() {
+
+}
+
+void pickUpMobileGoal()
+{
+
+}
 // The match function has the main calls you would do for an autonomous routine besides the non-drivebase motor calls
 void matchJ()
 {
+	//Reset to start position.
 	chassis.setPose({-34, -64, 0});
 	pros::delay(100);
-	chassis.moveToPoint(-34, -35, 3000);
+	//Drive to the mobile goal.
+	chassis.moveToPoint(-51.931, -6.478, 3000);
+	pickUpMobileGoal();
+	scoreRing();
+	//Turn to the ring stack.
+	chassis.turnToHeading(270, 2000);
+	chassis.moveToPoint(-57.379, -5.086, 3000);
+	pickUpRing();
+	scoreRing();
+	//Drive back to the farther ring stack.
+	chassis.turnToHeading(180, 3000);
+	chassis.moveToPoint(-49.196, -40.273, 3000);
+	pickUpRing();
+	scoreRing();
+	//Drive to the red ring stack.
 	chassis.turnToHeading(90, 2000);
+	chassis.moveToPoint(-29.405, -45.935, 3000);
+	pickUpRing();
+	scoreRing();
+	//Drive to the next ... ring stack.
 	chassis.follow(J_M_1_txt, 30, 3500, {false});
 }
 /**
