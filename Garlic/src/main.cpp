@@ -397,21 +397,48 @@ void matchJ()
 }
 
 void autonomous_skills(){
-	chassis.setPose({-59, -59, 225});
+	// start in bottom left corner facing the corner ring
+	chassis.setPose({-58, -58, 225});
 	pros::delay(100);
-	chassis.moveToPoint(-60.5, -60.5, 500, {false});
-	chassis.moveToPoint(-59, -59, 500);
-	chassis.turnToHeading(45, 500);
-	chassis.moveToPoint(-47, -47, 500);
-	chassis.turnToHeading(270, 500);
-	chassis.moveToPoint(-35, -47, 500);
+	// move to corner ring
+	chassis.moveToPoint(-60.5, -60.5, 500);
 
+	// intake corner ring
+
+	// return to starting position (reverse)
+	chassis.moveToPoint(-57, -57, 500, {false});
+	// turn around 180 deg
+	chassis.turnToHeading(45, 500);
+
+	// move to second ring
+	chassis.moveToPoint(-47, -47, 500);
+
+	// intake second ring
+
+	// turn towards mobile goal for scoring (back of chassis facing mobile goal)
+	chassis.turnToHeading(270, 500);
+	// move to mobile goal
+	chassis.moveToPoint(-35, -47, 500, {false});
+
+	// clamp mobile goal
+
+	// turn towards third ring (hopefully with mobile goal still clamped)
 	chassis.turnToHeading(25, 500);
-	chassis.moveToPoint(-28, -31, 500);
-	chassis.turnToHeading(115, 500);
-	chassis.moveToPoint(-7, -42, 500);
-	chassis.turnToHeading(60, 500);
-	chassis.moveToPoint(-56.5, -58.5, 1000, {false});
+	// move to third ring
+	chassis.moveToPoint(-24, -24, 500);
+
+	// intake third ring
+
+	// turn towards fourth ring
+	chassis.turnToHeading(135, 500);
+	// move to fourth ring
+	chassis.moveToPoint(-4, -43, 500);
+	// turn so back of robot is facing corner (to score mobile goal)
+	chassis.turnToHeading(70, 500);
+	// reverse mobile goal into corner
+	chassis.moveToPoint(-54, -60, 1000, {false});
+
+	// unclamp mobile goal
 
 	chassis.follow(J_M_1_txt, 30, 3500, {false});
 }
