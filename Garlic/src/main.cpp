@@ -1,3 +1,4 @@
+
 #include "main.h"
 
 // Import libraries
@@ -81,8 +82,8 @@ pros::adi::DigitalOut holder_right_solenoid(HOLDER_RIGHT_SOLENOID);
 pros::adi::DigitalOut holder_left_solenoid(HOLDER_LEFT_SOLENOID);
 pros::Distance ring_sensor(DISTANCE_SENSOR_PORT);
 
-pros::MotorGroup leftSide({FRONT_LEFT_PORT, MIDDLE_LEFT_PORT, BACK_LEFT_PORT});
-pros::MotorGroup rightSide({-FRONT_RIGHT_PORT, -MIDDLE_RIGHT_PORT, -BACK_RIGHT_PORT});
+pros::MotorGroup leftSide({FRONT_LEFT_PORT, -MIDDLE_LEFT_PORT, BACK_LEFT_PORT});
+pros::MotorGroup rightSide({-FRONT_RIGHT_PORT, MIDDLE_RIGHT_PORT, -BACK_RIGHT_PORT});
 pros::MotorGroup riGroup({INTAKE_PORT});
 pros::MotorGroup conveyorLiftGroup({CONVEYOR_LIFT_1_PORT, CONVEYOR_LIFT_2_PORT});
 pros::MotorGroup conveyorGroup({CONVEYOR_PORT});
@@ -392,10 +393,26 @@ void qualJ()
 // The match function has the main calls you would do for an autonomous routine besides the non-drivebase motor calls
 void matchJ()
 {
-	chassis.setPose({-34, -64, 0});
+	
+}
+
+void autonomous_skills(){
+	chassis.setPose({-59, -59, 225});
 	pros::delay(100);
-	chassis.moveToPoint(-34, -35, 3000);
-	chassis.turnToHeading(90, 2000);
+	chassis.moveToPoint(-60.5, -60.5, 500, {false});
+	chassis.moveToPoint(-59, -59, 500);
+	chassis.turnToHeading(45, 500);
+	chassis.moveToPoint(-47, -47, 500);
+	chassis.turnToHeading(270, 500);
+	chassis.moveToPoint(-35, -47, 500);
+
+	chassis.turnToHeading(25, 500);
+	chassis.moveToPoint(-28, -31, 500);
+	chassis.turnToHeading(115, 500);
+	chassis.moveToPoint(-7, -42, 500);
+	chassis.turnToHeading(60, 500);
+	chassis.moveToPoint(-56.5, -58.5, 1000, {false});
+
 	chassis.follow(J_M_1_txt, 30, 3500, {false});
 }
 /**
