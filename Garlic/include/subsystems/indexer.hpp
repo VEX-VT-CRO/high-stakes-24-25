@@ -6,32 +6,26 @@
 class Indexer
 {
     public:
-        // Constructor with updated type definitions
-        Indexer(pros::adi::DigitalOut& br, pros::adi::DigitalOut& bl, pros::adi::DigitalOut& fr, pros::adi::DigitalOut& fl, pros::adi::DigitalOut& odom);
-        
-        // Public methods for controlling the solenoids
-        void openFront();
-        void openBack();
-        void openOdometry();
+        Indexer(pros::adi::DigitalOut& br, pros::adi::DigitalOut& bl, pros::adi::DigitalOut& hr, pros::adi::DigitalOut& hl);
 
-        void openFrontLeft();
-        void openFrontRight();
-        void openBackLeft();
-        void openBackRight();
-    
+        void openBumpers();
+        void openHolders();
+
     private:
-        // Member variables with updated type definitions
-        pros::adi::DigitalOut& back_right_solenoid;
-        pros::adi::DigitalOut& back_left_solenoid;
-        pros::adi::DigitalOut& front_right_solenoid;
-        pros::adi::DigitalOut& front_left_solenoid;
-        pros::adi::DigitalOut& odometry_solenoid;
+        pros::adi::DigitalOut& bumper_right_solenoid;
+        pros::adi::DigitalOut& bumper_left_solenoid;
+        pros::adi::DigitalOut& holder_right_solenoid;
+        pros::adi::DigitalOut& holder_left_solenoid;
 
-        // State tracking for the solenoids
-        bool open_front_left;
-        bool open_front_right;
-        bool open_back_left;
-        bool open_back_right;
+        bool open_bumper_left;
+        bool open_bumper_right;
+        bool open_holder_left;
+        bool open_holder_right;
+
+        void openBumperLeft();
+        void openBumperRight();
+        void openHolderLeft();
+        void openHolderRight();
 };
 
-#endif
+#endif // INDEXER_HPP

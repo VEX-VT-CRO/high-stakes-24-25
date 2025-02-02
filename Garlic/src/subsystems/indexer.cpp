@@ -1,73 +1,65 @@
 #include "subsystems/indexer.hpp"
 #include "pros/rtos.hpp"
 
-// Use initializer list to initialize the solenoids and member variables
-Indexer::Indexer(pros::adi::DigitalOut& s1, pros::adi::DigitalOut& s2, pros::adi::DigitalOut& s3, pros::adi::DigitalOut& s4, pros::adi::DigitalOut& s5) 
-    : back_right_solenoid(s1), back_left_solenoid(s2), front_right_solenoid(s3), front_left_solenoid(s4), odometry_solenoid(s5)
+// Constructor initializes solenoids
+Indexer::Indexer(pros::adi::DigitalOut& s1, pros::adi::DigitalOut& s2, pros::adi::DigitalOut& s3, pros::adi::DigitalOut& s4) 
+    : bumper_right_solenoid(s1), bumper_left_solenoid(s2), holder_right_solenoid(s3), holder_left_solenoid(s4),
+      open_bumper_left(false), open_bumper_right(false), open_holder_left(false), open_holder_right(false)
 {
-   open_back_left = false;
-   open_back_right = false;
-   open_front_left = false;
-   open_front_right = false;
 }
 
-void Indexer::openFront()
+void Indexer::openBumpers()
 {
-    openFrontLeft();
-    openFrontRight();
+    openBumperLeft();
+    openBumperRight();
 }
 
-void Indexer::openBack()
+void Indexer::openHolders()
 {
-    openBackLeft();
-    openBackRight();
+    openHolderLeft();
+    openHolderRight();
 }
 
-void Indexer::openOdometry()
+void Indexer::openBumperLeft()
 {
-    // Placeholder for odometry solenoid control
-}
-
-void Indexer::openBackLeft()
-{
-    if (!open_back_left) {
-        back_left_solenoid.set_value(1); // Activate solenoid
-        open_back_left = true; 
+    if (!open_bumper_left) {
+        bumper_left_solenoid.set_value(1);
+        open_bumper_left = true;
     } else {
-        back_left_solenoid.set_value(0); // Deactivate solenoid
-        open_back_left = false;
+        bumper_left_solenoid.set_value(0);
+        open_bumper_left = false;
     }
 }
 
-void Indexer::openBackRight()
+void Indexer::openBumperRight()
 {
-    if (!open_back_right) {
-        back_right_solenoid.set_value(1); // Activate solenoid
-        open_back_right = true; 
+    if (!open_bumper_right) {
+        bumper_right_solenoid.set_value(1);
+        open_bumper_right = true;
     } else {
-        back_right_solenoid.set_value(0); // Deactivate solenoid
-        open_back_right = false;
+        bumper_right_solenoid.set_value(0);
+        open_bumper_right = false;
     }
 }
 
-void Indexer::openFrontLeft()
+void Indexer::openHolderLeft()
 {
-    if (!open_front_left) {
-        front_left_solenoid.set_value(1); // Activate solenoid
-        open_front_left = true; 
+    if (!open_holder_left) {
+        holder_left_solenoid.set_value(1);
+        open_holder_left = true;
     } else {
-        front_left_solenoid.set_value(0); // Deactivate solenoid
-        open_front_left = false;
+        holder_left_solenoid.set_value(0);
+        open_holder_left = false;
     }
 }
 
-void Indexer::openFrontRight()
+void Indexer::openHolderRight()
 {
-    if (!open_front_right) {
-        front_right_solenoid.set_value(1); // Activate solenoid
-        open_front_right = true; 
+    if (!open_holder_right) {
+        holder_right_solenoid.set_value(1);
+        open_holder_right = true;
     } else {
-        front_right_solenoid.set_value(0); // Deactivate solenoid
-        open_front_right = false;
+        holder_right_solenoid.set_value(0);
+        open_holder_right = false;
     }
 }
