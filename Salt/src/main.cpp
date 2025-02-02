@@ -57,11 +57,7 @@ constexpr double ODOM_WHEEL_DIAMETER = 2;
 constexpr double HORIZONTAL_WHEEL_DISTANCE = 1.5625;
 constexpr double VERTICAL_WHEEL_DISTANCE = -4.0625;
 
-constexpr char BACK_LEFT_SOLENOID = 'B';
-constexpr char BACK_RIGHT_SOLENOID = 'A';
-constexpr char FRONT_LEFT_SOLENOID = 'C';
-constexpr char FRONT_RIGHT_SOLENOID = 'D';
-constexpr char ODOMETRY_SOLENOID = 'E';
+constexpr char SOLENOID = 'A';
 
 pros::Controller driver(pros::controller_id_e_t::E_CONTROLLER_MASTER);
 
@@ -69,11 +65,7 @@ RobotState robotState = RobotState::Driving;
 
 
 // MOTORS and PNEUMATICS
-pros::adi::DigitalOut back_right_solenoid(BACK_RIGHT_SOLENOID);
-pros::adi::DigitalOut back_left_solenoid(BACK_LEFT_SOLENOID);
-pros::adi::DigitalOut front_right_solenoid(FRONT_RIGHT_SOLENOID);
-pros::adi::DigitalOut front_left_solenoid(FRONT_LEFT_SOLENOID);
-pros::adi::DigitalOut odometry_solenoid(ODOMETRY_SOLENOID);
+pros::adi::DigitalOut solenoid(SOLENOID);
 
 pros::MotorGroup leftSide({FRONT_LEFT_PORT, MIDDLE_FRONT_LEFT_PORT, MIDDLE_BACK_LEFT_PORT, -BACK_LEFT_PORT});
 pros::MotorGroup rightSide({-FRONT_RIGHT_PORT, -MIDDLE_FRONT_RIGHT_PORT, -MIDDLE_BACK_RIGHT_PORT, BACK_RIGHT_PORT});
@@ -133,7 +125,7 @@ lemlib::OdomSensors sensors(
 lemlib::Chassis chassis(LLDrivetrain, linearController, angularController, sensors);
 
 RollerIntake ri(riGroup);
-Indexer ind(back_right_solenoid, back_left_solenoid, front_right_solenoid, front_left_solenoid, odometry_solenoid);
+Indexer ind(solenoid);
 Climb climb(climbGroup);
 /**
  * Runs initialization code. This occurs as soon as the program is started.
@@ -276,18 +268,9 @@ void pollController()
 		ri.spin(0);
 	}
 
-	if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_DOWN))
-	{
-		ind.openFrontLeft();
-	}
-	if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_B))
-	{
-		ind.openFrontRight();
-	}
-
 	if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R1))
 	{
-		ind.openBack();
+		ind.toggle();
 	}
 
 	if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_A))
