@@ -3,9 +3,10 @@
 // Import libraries
 #include "lemlib/api.hpp"
 #include "lemlib/util.hpp"
-#include "subsystems/rollerintake.hpp"
+#include "subsystems/rollerIntake.hpp"
 #include "subsystems/indexer.hpp"
-#include "subsystems/climb.hpp"
+#include "subsystems/sideStakes.hpp"
+#include "subsystems/conveyor.hpp"
 
 // Two major definitions for each bot
 #define QUAL_AUTO
@@ -19,7 +20,7 @@ enum class RobotState
 {
 	Driving,
 	Intaking,
-	Climbing
+	SideStakes
 };
 
 // Initialize ports and key variables
@@ -36,55 +37,52 @@ constexpr int8_t MIDDLE_BACK_RIGHT_PORT = 16;
 constexpr int8_t BACK_RIGHT_PORT = 18;
 
 constexpr int8_t INTAKE_PORT = 6;
+constexpr int8_t CONVEYOR_PORT = 20;
 
-constexpr int8_t CLIMB_1_PORT = 11;
-constexpr int8_t CLIMB_2_PORT = 20;
+constexpr int8_t SIDESTAKES_PORT_1 = 11;
+constexpr int8_t SIDESTAKES_PORT_2 = 12;
 
-constexpr int8_t HORIZONTAL_POD_PORT = 14;
-constexpr int8_t VERTICAL_POD_PORT = 17;
 constexpr int8_t GYRO_PORT = 5;
-constexpr int8_t BALL_DISTANCE_PORT = 3;
+constexpr int8_t OPTICAL_PORT = 3;
+constexpr int8_t ROTATION_PORT = 4;
 
 constexpr double TRACK_WIDTH = 12;
 constexpr double WHEEL_DIAMETER = 3;
 constexpr double DRIVE_RPM = 600;
 constexpr double CHASE_POWER = 2;
 
-constexpr int32_t BALL_PRESENT_DISTANCE = 150;
-constexpr int INTAKE_INTAKING_DIRECTION = 1;
-
 constexpr double ODOM_WHEEL_DIAMETER = 2;
 constexpr double HORIZONTAL_WHEEL_DISTANCE = 1.5625;
 constexpr double VERTICAL_WHEEL_DISTANCE = -4.0625;
 
-constexpr char BACK_LEFT_SOLENOID = 'B';
-constexpr char BACK_RIGHT_SOLENOID = 'A';
-constexpr char FRONT_LEFT_SOLENOID = 'C';
-constexpr char FRONT_RIGHT_SOLENOID = 'D';
-constexpr char ODOMETRY_SOLENOID = 'E';
+constexpr char LEFT_SOLENOID = 'A';
+constexpr char RIGHT_SOLENOID = 'B';
+constexpr char HORIZONTAL_POD_PORT_1 = 'C';
+constexpr char HORIZONTAL_POD_PORT_2 = 'D';
+constexpr char VERTICAL_POD_PORT_1 = 'E';
+constexpr char VERTICAL_POD_PORT_2 = 'F';
 
 pros::Controller driver(pros::controller_id_e_t::E_CONTROLLER_MASTER);
 
 RobotState robotState = RobotState::Driving;
 
-
 // MOTORS and PNEUMATICS
-pros::adi::DigitalOut back_right_solenoid(BACK_RIGHT_SOLENOID);
-pros::adi::DigitalOut back_left_solenoid(BACK_LEFT_SOLENOID);
-pros::adi::DigitalOut front_right_solenoid(FRONT_RIGHT_SOLENOID);
-pros::adi::DigitalOut front_left_solenoid(FRONT_LEFT_SOLENOID);
-pros::adi::DigitalOut odometry_solenoid(ODOMETRY_SOLENOID);
+pros::adi::DigitalOut right_solenoid(RIGHT_SOLENOID);
+pros::adi::DigitalOut left_solenoid(LEFT_SOLENOID);
 
 pros::MotorGroup leftSide({FRONT_LEFT_PORT, MIDDLE_FRONT_LEFT_PORT, MIDDLE_BACK_LEFT_PORT, -BACK_LEFT_PORT});
 pros::MotorGroup rightSide({-FRONT_RIGHT_PORT, -MIDDLE_FRONT_RIGHT_PORT, -MIDDLE_BACK_RIGHT_PORT, BACK_RIGHT_PORT});
 pros::MotorGroup riGroup({INTAKE_PORT});
-pros::MotorGroup climbGroup({-CLIMB_1_PORT, CLIMB_2_PORT});
+pros::MotorGroup conveyorGroup({CONVEYOR_PORT});
+pros::MotorGroup sideStakesGroup({SIDESTAKES_PORT_1, -SIDESTAKES_PORT_2});
 
 // SENSORS
-pros::Rotation horizontalPod(HORIZONTAL_POD_PORT);
-pros::Rotation verticalPod(-VERTICAL_POD_PORT);
+pros::adi::Encoder horizontalPod(HORIZONTAL_POD_PORT_1, HORIZONTAL_POD_PORT_2);
+pros::adi::Encoder verticalPod(VERTICAL_POD_PORT_1, VERTICAL_POD_PORT_2);
+
 pros::IMU gyro(GYRO_PORT);
-pros::Distance ballDistance(BALL_DISTANCE_PORT);
+pros::Rotation sideStakesRotation(ROTATION_PORT);
+pros::Optical ringColor(OPTICAL_PORT);
 
 // LEMLIB STRUCTURES
 
@@ -133,8 +131,9 @@ lemlib::OdomSensors sensors(
 lemlib::Chassis chassis(LLDrivetrain, linearController, angularController, sensors);
 
 RollerIntake ri(riGroup);
-Indexer ind(back_right_solenoid, back_left_solenoid, front_right_solenoid, front_left_solenoid, odometry_solenoid);
-Climb climb(climbGroup);
+Indexer ind(left_solenoid, right_solenoid);
+SideStakes sideStakes(sideStakesGroup, sideStakesRotation);
+Conveyor conveyor(conveyorGroup);
 /**
  * Runs initialization code. This occurs as soon as the program is started.
  *
@@ -150,8 +149,8 @@ const char *toString(RobotState state)
 		return "Driving";
 	case RobotState::Intaking:
 		return "Intaking";
-	case RobotState::Climbing:
-		return "Climbing";
+	case RobotState::SideStakes:
+		return "SideStakes";
 	default:
 		return "Unknown State";
 	}
@@ -166,23 +165,27 @@ void setcurrentstate(RobotState state)
 		leftSide.set_current_limit_all(2500);
 		rightSide.set_current_limit_all(2500);
 		riGroup.set_current_limit_all(0);
-		climbGroup.set_current_limit_all(0);
+		conveyorGroup.set_current_limit_all(0);
+		sideStakesGroup.set_current_limit_all(0);
+
 	}
 
 	if (state == RobotState::Intaking)
 	{
-		leftSide.set_current_limit_all(2200);
-		rightSide.set_current_limit_all(2200);
-		riGroup.set_current_limit_all(2400);
-		climbGroup.set_current_limit_all(0);
-	}
-
-	if (state == RobotState::Climbing)
-	{
-		riGroup.set_current_limit_all(0);
-		climbGroup.set_current_limit_all(2500);
 		leftSide.set_current_limit_all(1875);
 		rightSide.set_current_limit_all(1875);
+		riGroup.set_current_limit_all(2500);
+		conveyorGroup.set_current_limit_all(2500);
+		sideStakesGroup.set_current_limit_all(0);
+	}
+
+	if (state == RobotState::SideStakes)
+	{
+		leftSide.set_current_limit_all(1875);
+		rightSide.set_current_limit_all(1875);
+		riGroup.set_current_limit_all(0);
+		conveyorGroup.set_current_limit_all(0);
+		sideStakesGroup.set_current_limit_all(2500);
 	}
 }
 
@@ -201,7 +204,7 @@ void initialize()
             pros::lcd::print(0, "X: %f", chassis.getPose().x); // x
             pros::lcd::print(1, "Y: %f", chassis.getPose().y); // y
             pros::lcd::print(2, "Theta: %f", chassis.getPose().theta); // heading
-            pros::lcd::print(3, "J");
+            pros::lcd::print(3, "Salt");
 #if defined(QUAL_AUTO)
                 pros::lcd::print(4, "QUAL");
 #elif defined(MATCH_AUTO)
@@ -213,21 +216,13 @@ void initialize()
         } });
 }
 
-void autoIntakeManager()
+bool allianceColor()
 {
-	while (!pros::competition::is_autonomous())
-	{
-		pros::delay(10);
-	}
-	while (pros::competition::is_autonomous())
-	{
-		if (ballDistance.get() < BALL_PRESENT_DISTANCE && riGroup.get_direction_all()[0] == INTAKE_INTAKING_DIRECTION)
-		{
-			riGroup.move(0);
-		}
-
-		pros::delay(10);
-	}
+	pros::c::optical_rgb_s_t rgb_value;
+	rgb_value = ringColor.get_rgb();
+	if (rgb_value.red > rgb_value.blue)
+		return true;
+	return false;
 }
 
 // Link to curve
@@ -260,7 +255,7 @@ void pollController()
 			robotState = RobotState::Intaking;
 			setcurrentstate(robotState);
 		}
-		ri.spin(ri.STANDARD_MV);
+		ri.spin(12000);
 	}
 	else if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_L2))
 	{
@@ -269,7 +264,7 @@ void pollController()
 			robotState = RobotState::Intaking;
 			setcurrentstate(robotState);
 		}
-		ri.spin(-ri.STANDARD_MV);
+		ri.spin(-12000);
 	}
 	else
 	{
@@ -278,49 +273,7 @@ void pollController()
 
 	if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_DOWN))
 	{
-		ind.openFrontLeft();
-	}
-	if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_B))
-	{
-		ind.openFrontRight();
-	}
-
-	if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R1))
-	{
-		ind.openBack();
-	}
-
-	if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_A))
-	{
-		if (robotState != RobotState::Climbing)
-		{
-			robotState = RobotState::Climbing;
-			setcurrentstate(robotState);
-		}
-		climb.moveClimb(-12000);
-	}
-	else if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_LEFT))
-	{
-		if (robotState != RobotState::Climbing)
-		{
-			robotState = RobotState::Climbing;
-			setcurrentstate(robotState);
-		}
-		climb.moveClimb(12000);
-	}
-	else if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R2))
-	{
-		if (robotState != RobotState::Climbing)
-		{
-			robotState = RobotState::Climbing;
-			setcurrentstate(robotState);
-		}
-		climb.deployClimb_J();
-		auto_climb_state = true;
-	}
-	else
-	{
-		climb.moveClimb(0);
+		ind.clamp();
 	}
 
 	if (!driver.get_digital(pros::E_CONTROLLER_DIGITAL_L1) &&
@@ -336,6 +289,17 @@ void pollController()
 	}
 }
 
+ASSET(J_M_1_txt);
+
+void qual_auto()
+{
+
+}
+
+void match_auto()
+{
+
+}
 /**
  * Runs while the robot is in the disabled state of Field Management System or
  * the VEX Competition Switch, following either autonomous or opcontrol. When
@@ -354,34 +318,6 @@ void disabled() {}
  */
 void competition_initialize() {}
 
-ASSET(PB_M_1_txt);
-ASSET(PB_M_2_txt);
-ASSET(PB_M_3_txt);
-ASSET(PB_M_4_txt);
-ASSET(PB_M_3_1_txt);
-ASSET(PB_M_1_1_txt);
-
-ASSET(J_M_1_txt);
-ASSET(J_M_2_txt);
-
-ASSET(J_Q_1_txt);
-ASSET(J_Q_2_txt);
-ASSET(J_Q_3_txt);
-
-void qualJ()
-{
-
-}
-
-// The match function has the main calls you would do for an autonomous routine besides the non-drivebase motor calls
-void matchJ()
-{
-	chassis.setPose({-34, -64, 0});
-	pros::delay(100);
-	chassis.moveToPoint(-34, -35, 3000);
-	chassis.turnToHeading(90, 2000);
-	chassis.follow(J_M_1_txt, 30, 3500, {false});
-}
 /**
  * Runs the user autonomous code. This function will be started in its own task
  * with the default priority and stack size whenever the robot is enabled via
@@ -395,12 +331,12 @@ void matchJ()
  */
 void autonomous()
 {
-	pros::Task intakeTask(autoIntakeManager);
-#if defined(QUAL_AUTO)
-	qualJ();
-#elif defined(MATCH_AUTO)
-	matchJ();
-#endif
+	pros::Task colorTask(allianceColor);
+	#if defined(QUAL_AUTO)
+		qual_auto();
+	#elif defined(MATCH_AUTO)
+		match_auto();
+	#endif
 }
 
 /**
@@ -420,12 +356,8 @@ void opcontrol()
 {
 	while (true)
 	{
-	std::vector<double> positions = climbGroup.get_position_all();
-	std::vector<double> targetPositions = climbGroup.get_target_position_all();
 		if (!auto_climb_state)
 			pollController();
-		else if (abs(positions[0] - targetPositions[0]) < 0.5)
-			auto_climb_state = false;
 		if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R2))
 		{
 			auto_climb_state = false;
