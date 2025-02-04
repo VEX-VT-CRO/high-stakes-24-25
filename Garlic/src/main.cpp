@@ -4,7 +4,7 @@
 // Import libraries
 #include "lemlib/api.hpp"
 #include "lemlib/util.hpp"
-#include "subsystems/rollerintake.hpp"
+#include "subsystems/rollerIntake.hpp"
 #include "subsystems/indexer.hpp"
 #include "subsystems/climb.hpp"
 #include "subsystems/conveyorlift.hpp"
