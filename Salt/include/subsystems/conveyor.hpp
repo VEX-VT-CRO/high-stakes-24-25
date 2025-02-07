@@ -8,7 +8,7 @@ class Conveyor
 {
     public:
         Conveyor(pros::MotorGroup& m);
-        void spin(int mV);
+        void spin(int rpm);
     private:
         pros::MotorGroup& motors;
 };

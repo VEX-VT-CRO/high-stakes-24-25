@@ -5,7 +5,7 @@ Conveyor::Conveyor(pros::MotorGroup& m) : motors{m}
     
 }
 
-void Conveyor::spin(int mV)
+void Conveyor::spin(int rpm)
 {
-    motors.move_voltage(mV);
+    motors.move_velocity(rpm);
 }

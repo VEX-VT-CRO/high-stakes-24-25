@@ -1,6 +1,6 @@
 #include "subsystems/sideStakes.hpp"
 
-SideStakes::SideStakes(pros::MotorGroup& m, pros::Rotation& r) : motors{m}, rotation{r}
+SideStakes::SideStakes(pros::MotorGroup& m) : motors{m}
 {
     
 }
@@ -9,11 +9,6 @@ SideStakes::SideStakes(pros::MotorGroup& m, pros::Rotation& r) : motors{m}, rota
 void SideStakes::spin(int mV)
 {
     motors.move_voltage(mV);
-}
-
-void SideStakes::getPosition()
-{
-    rotation.get_position();
 }
 
 void SideStakes::moveToPosition(double position)

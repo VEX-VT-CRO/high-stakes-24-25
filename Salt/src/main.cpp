@@ -27,24 +27,31 @@ enum class RobotState
 
 bool auto_climb_state = false;
 
-constexpr int8_t FRONT_LEFT_PORT = 1;
-constexpr int8_t MIDDLE_FRONT_LEFT_PORT = 2;
-constexpr int8_t MIDDLE_BACK_LEFT_PORT = 15;
-constexpr int8_t BACK_LEFT_PORT = 13;
-constexpr int8_t FRONT_RIGHT_PORT = 10;
-constexpr int8_t MIDDLE_FRONT_RIGHT_PORT = 9;
-constexpr int8_t MIDDLE_BACK_RIGHT_PORT = 16;
-constexpr int8_t BACK_RIGHT_PORT = 18;
+enum class AllianceColor
+{
+	Red,
+	Blue,
+	No_Ring
+};
 
-constexpr int8_t INTAKE_PORT = 6;
-constexpr int8_t CONVEYOR_PORT = 20;
+constexpr int8_t FRONT_LEFT_PORT = 14;
+constexpr int8_t MIDDLE_FRONT_LEFT_PORT = 9;
+constexpr int8_t MIDDLE_BACK_LEFT_PORT = 6;
+constexpr int8_t BACK_LEFT_PORT = 8;
+constexpr int8_t FRONT_RIGHT_PORT = 1;
+constexpr int8_t MIDDLE_FRONT_RIGHT_PORT = 18;
+constexpr int8_t MIDDLE_BACK_RIGHT_PORT = 19;
+constexpr int8_t BACK_RIGHT_PORT = 20;
 
-constexpr int8_t SIDESTAKES_PORT_1 = 11;
-constexpr int8_t SIDESTAKES_PORT_2 = 12;
+constexpr int8_t INTAKE_PORT_1 = 13;
+constexpr int8_t INTAKE_PORT_2 = 12;
+constexpr int8_t CONVEYOR_PORT = 15;
 
-constexpr int8_t GYRO_PORT = 5;
-constexpr int8_t OPTICAL_PORT = 3;
-constexpr int8_t ROTATION_PORT = 4;
+constexpr int8_t SIDESTAKES_PORT = 7;
+
+constexpr int8_t GYRO_PORT_1 = 30;
+constexpr int8_t GYRO_PORT_2 = 31;
+constexpr int8_t OPTICAL_PORT = 10;
 
 constexpr double TRACK_WIDTH = 12;
 constexpr double WHEEL_DIAMETER = 3;
@@ -65,25 +72,24 @@ constexpr char VERTICAL_POD_PORT_2 = 'F';
 pros::Controller driver(pros::controller_id_e_t::E_CONTROLLER_MASTER);
 
 RobotState robotState = RobotState::Driving;
+AllianceColor alliance_color = AllianceColor::No_Ring;
 
 // MOTORS and PNEUMATICS
 pros::adi::DigitalOut right_solenoid(RIGHT_SOLENOID);
 pros::adi::DigitalOut left_solenoid(LEFT_SOLENOID);
 
-pros::MotorGroup leftSide({FRONT_LEFT_PORT, MIDDLE_FRONT_LEFT_PORT, MIDDLE_BACK_LEFT_PORT, -BACK_LEFT_PORT});
-pros::MotorGroup rightSide({-FRONT_RIGHT_PORT, -MIDDLE_FRONT_RIGHT_PORT, -MIDDLE_BACK_RIGHT_PORT, BACK_RIGHT_PORT});
-pros::MotorGroup riGroup({INTAKE_PORT});
+pros::MotorGroup leftSide({-FRONT_LEFT_PORT, -MIDDLE_FRONT_LEFT_PORT, -MIDDLE_BACK_LEFT_PORT, -BACK_LEFT_PORT});
+pros::MotorGroup rightSide({FRONT_RIGHT_PORT, MIDDLE_FRONT_RIGHT_PORT, MIDDLE_BACK_RIGHT_PORT, BACK_RIGHT_PORT});
+pros::MotorGroup riGroup({-INTAKE_PORT_1, INTAKE_PORT_2});
 pros::MotorGroup conveyorGroup({CONVEYOR_PORT});
-pros::MotorGroup sideStakesGroup({SIDESTAKES_PORT_1, -SIDESTAKES_PORT_2});
+pros::MotorGroup sideStakesGroup({SIDESTAKES_PORT});
 
 // SENSORS
 pros::adi::Encoder horizontalPod(HORIZONTAL_POD_PORT_1, HORIZONTAL_POD_PORT_2);
 pros::adi::Encoder verticalPod(VERTICAL_POD_PORT_1, VERTICAL_POD_PORT_2);
 
-pros::IMU gyro(GYRO_PORT);
-pros::Rotation sideStakesRotation(ROTATION_PORT);
+pros::IMU gyro(GYRO_PORT_1);
 pros::Optical ringColor(OPTICAL_PORT);
-
 // LEMLIB STRUCTURES
 
 lemlib::TrackingWheel horizontalWheel(&horizontalPod, ODOM_WHEEL_DIAMETER, HORIZONTAL_WHEEL_DISTANCE);
@@ -132,7 +138,7 @@ lemlib::Chassis chassis(LLDrivetrain, linearController, angularController, senso
 
 RollerIntake ri(riGroup);
 Indexer ind(left_solenoid, right_solenoid);
-SideStakes sideStakes(sideStakesGroup, sideStakesRotation);
+SideStakes sideStakes(sideStakesGroup);
 Conveyor conveyor(conveyorGroup);
 /**
  * Runs initialization code. This occurs as soon as the program is started.
@@ -156,6 +162,21 @@ const char *toString(RobotState state)
 	}
 }
 
+const char *toString(AllianceColor color)
+{
+	switch (color)
+	{
+	case AllianceColor::Red:
+		return "Red";
+	case AllianceColor::Blue:
+		return "Blue";
+	case AllianceColor::No_Ring:
+		return "No Ring";
+	default:
+		return "Unknown Color";
+	}
+}
+
 // Set current limits based on robot state
 void setcurrentstate(RobotState state)
 {
@@ -172,17 +193,17 @@ void setcurrentstate(RobotState state)
 
 	if (state == RobotState::Intaking)
 	{
-		leftSide.set_current_limit_all(1875);
-		rightSide.set_current_limit_all(1875);
-		riGroup.set_current_limit_all(2500);
+		leftSide.set_current_limit_all(1687);
+		rightSide.set_current_limit_all(1687);
+		riGroup.set_current_limit_all(2000);
 		conveyorGroup.set_current_limit_all(2500);
 		sideStakesGroup.set_current_limit_all(0);
 	}
 
 	if (state == RobotState::SideStakes)
 	{
-		leftSide.set_current_limit_all(1875);
-		rightSide.set_current_limit_all(1875);
+		leftSide.set_current_limit_all(2187);
+		rightSide.set_current_limit_all(2187);
 		riGroup.set_current_limit_all(0);
 		conveyorGroup.set_current_limit_all(0);
 		sideStakesGroup.set_current_limit_all(2500);
@@ -194,8 +215,9 @@ void initialize()
 	pros::lcd::initialize();
 	chassis.calibrate();
 
-	leftSide.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_BRAKE);
-	rightSide.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_BRAKE);
+	leftSide.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_COAST);
+	rightSide.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_COAST);
+	ringColor.set_led_pwm(100);
 
 	pros::Task screenTask([&]()
 						  {
@@ -210,19 +232,27 @@ void initialize()
 #elif defined(MATCH_AUTO)
                 pros::lcd::print(4, "MATCH");
 #endif
-            pros::lcd::print(5, "Robot State: %s", toString(robotState));        
+            pros::lcd::print(5, "Robot State: %s", toString(robotState));    
+			pros::lcd::print(6, "Alliance Color: %s", toString(alliance_color));
             lemlib::telemetrySink()->info("Chassis pose: {}", chassis.getPose());
             pros::delay(50);
         } });
 }
 
-bool allianceColor()
+void allianceColor()
 {
 	pros::c::optical_rgb_s_t rgb_value;
 	rgb_value = ringColor.get_rgb();
 	if (rgb_value.red > rgb_value.blue)
-		return true;
-	return false;
+		if (rgb_value.red > 1000)
+			alliance_color = AllianceColor::Red;
+		else
+			alliance_color = AllianceColor::No_Ring;
+	else
+		if (rgb_value.blue > 1000)
+			alliance_color = AllianceColor::Blue;
+		else
+			alliance_color = AllianceColor::No_Ring;
 }
 
 // Link to curve
@@ -248,38 +278,40 @@ float expCurve(float input, float curveGain)
 // Poll controller for input
 void pollController()
 {
-	if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_L1))
+	if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_R1))
 	{
 		if (robotState != RobotState::Intaking)
 		{
 			robotState = RobotState::Intaking;
 			setcurrentstate(robotState);
 		}
-		ri.spin(12000);
+		ri.spin(600);
+		conveyor.spin(500);
 	}
-	else if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_L2))
+	else if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_R2))
 	{
 		if (robotState != RobotState::Intaking)
 		{
 			robotState = RobotState::Intaking;
 			setcurrentstate(robotState);
 		}
-		ri.spin(-12000);
+		ri.spin(-600);
+		conveyor.spin(-500);
 	}
 	else
 	{
 		ri.spin(0);
+		conveyor.spin(0);
 	}
 
-	if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_DOWN))
+	if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_L1))
 	{
 		ind.clamp();
 	}
 
 	if (!driver.get_digital(pros::E_CONTROLLER_DIGITAL_L1) &&
-		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_L2) &&
-		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_A) &&
-		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_LEFT))
+		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_R2) &&
+		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_R1))
 	{
 		if (robotState != RobotState::Driving)
 		{
@@ -371,7 +403,7 @@ void opcontrol()
 		int r = driver.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_Y);
 		chassis.tank(l, r);
 #endif
-
+		allianceColor();
 		pros::delay(10);
 	}
 }
