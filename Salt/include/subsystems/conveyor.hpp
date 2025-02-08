@@ -1,13 +1,13 @@
-#ifndef ROLLERINTAKE_HPP
-#define ROLLERINTAKE_HPP
+#ifndef CONVEYOR_HPP
+#define CONVEYOR_HPP
 
 #include "pros/motors.hpp"
 #include "pros/motor_group.hpp"
 
-class RollerIntake
+class Conveyor
 {
     public:
-        RollerIntake(pros::MotorGroup& m);
+        Conveyor(pros::MotorGroup& m);
         void spin(int rpm);
     private:
         pros::MotorGroup& motors;
