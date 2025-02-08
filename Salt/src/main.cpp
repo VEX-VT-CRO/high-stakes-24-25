@@ -350,6 +350,34 @@ void disabled() {}
  */
 void competition_initialize() {}
 
+ASSET(PB_M_1_txt);
+ASSET(PB_M_2_txt);
+ASSET(PB_M_3_txt);
+ASSET(PB_M_4_txt);
+ASSET(PB_M_3_1_txt);
+ASSET(PB_M_1_1_txt);
+
+ASSET(J_M_1_txt);
+ASSET(J_M_2_txt);
+
+ASSET(J_Q_1_txt);
+ASSET(J_Q_2_txt);
+ASSET(J_Q_3_txt);
+
+void qualJ()
+{
+
+}
+
+// The match function has the main calls you would do for an autonomous routine besides the non-drivebase motor calls
+void matchJ()
+{
+	chassis.setPose({-34, -64, 0});
+	pros::delay(100);
+	chassis.moveToPoint(-34, -35, 3000);
+	chassis.turnToHeading(90, 2000);
+	chassis.follow(J_M_1_txt, 30, 3500, {false});
+}
 /**
  * Runs the user autonomous code. This function will be started in its own task
  * with the default priority and stack size whenever the robot is enabled via
