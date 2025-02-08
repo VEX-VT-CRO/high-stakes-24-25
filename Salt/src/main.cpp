@@ -7,6 +7,7 @@
 #include "subsystems/indexer.hpp"
 #include "subsystems/sideStakes.hpp"
 #include "subsystems/conveyor.hpp"
+#include "subsystems/mergedIMU.hpp"
 
 // Two major definitions for each bot
 #define QUAL_AUTO
@@ -49,25 +50,25 @@ constexpr int8_t CONVEYOR_PORT = 15;
 
 constexpr int8_t SIDESTAKES_PORT = 7;
 
-constexpr int8_t GYRO_PORT_1 = 30;
-constexpr int8_t GYRO_PORT_2 = 31;
+constexpr int8_t GYRO_PORT_TOP = 17;
+constexpr int8_t GYRO_PORT_BOTTOM = 16;
 constexpr int8_t OPTICAL_PORT = 10;
 
-constexpr double TRACK_WIDTH = 12;
-constexpr double WHEEL_DIAMETER = 3;
+constexpr double TRACK_WIDTH = 18.375;
+constexpr double WHEEL_DIAMETER = 2.75;
 constexpr double DRIVE_RPM = 600;
-constexpr double CHASE_POWER = 2;
+constexpr double CHASE_POWER = 0.75;
 
-constexpr double ODOM_WHEEL_DIAMETER = 2;
-constexpr double HORIZONTAL_WHEEL_DISTANCE = 1.5625;
-constexpr double VERTICAL_WHEEL_DISTANCE = -4.0625;
+constexpr double ODOM_WHEEL_DIAMETER = 0.087890625;
+constexpr double HORIZONTAL_WHEEL_DISTANCE = 2.0625;
+constexpr double VERTICAL_WHEEL_DISTANCE = 2.4375;
 
 constexpr char LEFT_SOLENOID = 'A';
 constexpr char RIGHT_SOLENOID = 'B';
-constexpr char HORIZONTAL_POD_PORT_1 = 'C';
-constexpr char HORIZONTAL_POD_PORT_2 = 'D';
-constexpr char VERTICAL_POD_PORT_1 = 'E';
-constexpr char VERTICAL_POD_PORT_2 = 'F';
+constexpr char HORIZONTAL_POD_PORT_1 = 'E';
+constexpr char HORIZONTAL_POD_PORT_2 = 'F';
+constexpr char VERTICAL_POD_PORT_1 = 'C';
+constexpr char VERTICAL_POD_PORT_2 = 'D';
 
 pros::Controller driver(pros::controller_id_e_t::E_CONTROLLER_MASTER);
 
@@ -88,7 +89,11 @@ pros::MotorGroup sideStakesGroup({SIDESTAKES_PORT});
 pros::adi::Encoder horizontalPod(HORIZONTAL_POD_PORT_1, HORIZONTAL_POD_PORT_2);
 pros::adi::Encoder verticalPod(VERTICAL_POD_PORT_1, VERTICAL_POD_PORT_2);
 
-pros::IMU gyro(GYRO_PORT_1);
+pros::IMU gyro_top(GYRO_PORT_TOP);
+pros::IMU gyro_bottom(GYRO_PORT_BOTTOM);
+MergedIMU gyro(&gyro_top, &gyro_bottom, true);
+pros::adi::Encoder horizontalEncoder(VERTICAL_POD_PORT_1, VERTICAL_POD_PORT_2, true);
+pros::adi::Encoder verticalEncoder(HORIZONTAL_POD_PORT_1, HORIZONTAL_POD_PORT_2, false);
 pros::Optical ringColor(OPTICAL_PORT);
 // LEMLIB STRUCTURES
 
@@ -212,31 +217,32 @@ void setcurrentstate(RobotState state)
 
 void initialize()
 {
-	pros::lcd::initialize();
-	chassis.calibrate();
+    pros::lcd::initialize();
+    chassis.calibrate(); // existing line
 
-	leftSide.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_COAST);
-	rightSide.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_COAST);
-	ringColor.set_led_pwm(100);
+    leftSide.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_COAST);
+    rightSide.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_COAST);
+    ringColor.set_led_pwm(50);
 
-	pros::Task screenTask([&]()
-						  {
-    chassis.setPose({0, 0, 0});
+    pros::Task screenTask([&]()
+    {
+        chassis.setPose({0, 0, 90});
         while (true) {
-            pros::lcd::print(0, "X: %f", chassis.getPose().x); // x
-            pros::lcd::print(1, "Y: %f", chassis.getPose().y); // y
-            pros::lcd::print(2, "Theta: %f", chassis.getPose().theta); // heading
+            pros::lcd::print(0, "X: %f", chassis.getPose().x);
+            pros::lcd::print(1, "Y: %f", chassis.getPose().y);
+            pros::lcd::print(2, "Theta: %f", chassis.getPose().theta);
             pros::lcd::print(3, "Salt");
 #if defined(QUAL_AUTO)
-                pros::lcd::print(4, "QUAL");
+            pros::lcd::print(4, "QUAL");
 #elif defined(MATCH_AUTO)
-                pros::lcd::print(4, "MATCH");
+            pros::lcd::print(4, "MATCH");
 #endif
-            pros::lcd::print(5, "Robot State: %s", toString(robotState));    
-			pros::lcd::print(6, "Alliance Color: %s", toString(alliance_color));
+            pros::lcd::print(5, "Robot State: %s", toString(robotState));
+            pros::lcd::print(6, "Alliance Color: %s", toString(alliance_color));
             lemlib::telemetrySink()->info("Chassis pose: {}", chassis.getPose());
             pros::delay(50);
-        } });
+        }
+    });
 }
 
 void allianceColor()
@@ -323,9 +329,27 @@ void pollController()
 
 ASSET(J_M_1_txt);
 
+
 void qual_auto()
 {
-
+	chassis.setPose({0, 0, 90});
+	chassis.moveToPoint(95, 0, 2000, {}, false);
+	pros::delay(100);
+	chassis.turnToHeading(0, 2000);
+	pros::delay(100);
+	chassis.moveToPoint(95, 95, 2000, {}, false);
+	pros::delay(100);
+	chassis.turnToHeading(270, 2000);
+	pros::delay(100);
+	chassis.moveToPoint(20, 95, 2000, {}, false);
+	pros::delay(100);
+	chassis.turnToHeading(180, 2000);
+	pros::delay(100);
+	chassis.moveToPoint(20, 0, 2000, {}, false);
+	pros::delay(100);
+	chassis.turnToHeading(90, 2000);
+	pros::delay(100);
+	chassis.moveToPoint(0, 0, 2000, {false}, false);
 }
 
 void match_auto()

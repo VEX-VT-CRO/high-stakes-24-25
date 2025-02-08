@@ -33,8 +33,8 @@ constexpr int8_t FRONT_LEFT_PORT = 1;
 constexpr int8_t MIDDLE_LEFT_PORT = 2;
 constexpr int8_t BACK_LEFT_PORT = 13;
 constexpr int8_t FRONT_RIGHT_PORT = 10;
-constexpr int8_t MIDDLE_RIGHT_PORT = 9;
-constexpr int8_t BACK_RIGHT_PORT = 18;
+constexpr int8_t MIDDLE_RIGHT_PORT = 8;
+constexpr int8_t BACK_RIGHT_PORT = 17;
 
 constexpr int8_t INTAKE_PORT = 6;
 
@@ -82,8 +82,8 @@ pros::adi::DigitalOut holder_right_solenoid(HOLDER_RIGHT_SOLENOID);
 pros::adi::DigitalOut holder_left_solenoid(HOLDER_LEFT_SOLENOID);
 pros::Distance ring_sensor(DISTANCE_SENSOR_PORT);
 
-pros::MotorGroup leftSide({FRONT_LEFT_PORT, -MIDDLE_LEFT_PORT, BACK_LEFT_PORT});
-pros::MotorGroup rightSide({-FRONT_RIGHT_PORT, MIDDLE_RIGHT_PORT, -BACK_RIGHT_PORT});
+pros::MotorGroup leftSide({FRONT_LEFT_PORT, MIDDLE_LEFT_PORT, -BACK_LEFT_PORT});
+pros::MotorGroup rightSide({-FRONT_RIGHT_PORT, -MIDDLE_RIGHT_PORT, BACK_RIGHT_PORT});
 pros::MotorGroup riGroup({INTAKE_PORT});
 pros::MotorGroup conveyorLiftGroup({CONVEYOR_LIFT_1_PORT, CONVEYOR_LIFT_2_PORT});
 pros::MotorGroup conveyorGroup({CONVEYOR_PORT});
