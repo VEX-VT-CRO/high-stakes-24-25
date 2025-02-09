@@ -9,6 +9,7 @@
 #include "subsystems/climb.hpp"
 #include "subsystems/conveyorlift.hpp"
 #include "subsystems/conveyor.hpp"
+#include "subsystems/mergedIMU.hpp"
 
 // Two major definitions for each bot
 #define QUAL_AUTO
@@ -22,7 +23,7 @@ enum class RobotState
 {
 	Driving,
 	Intaking,
-	Climbing
+	SideStakes
 };
 
 // Initialize ports and key variables
@@ -37,28 +38,24 @@ constexpr int8_t MIDDLE_RIGHT_PORT = 8;
 constexpr int8_t BACK_RIGHT_PORT = 17;
 
 constexpr int8_t INTAKE_PORT = 6;
+constexpr int8_t CONVEYOR_PORT = 7;
 
 constexpr int8_t CONVEYOR_LIFT_1_PORT = 11;
 constexpr int8_t CONVEYOR_LIFT_2_PORT = 20;
+constexpr int8_t CONVEYOR_LIFT_3_PORT = 19;
+constexpr int8_t CONVEYOR_LIFT_4_PORT = 18;
 
-constexpr int8_t CONVEYOR_PORT = 7;
-
-// constexpr int8_t CLIMB_1_PORT = 11;
-// constexpr int8_t CLIMB_2_PORT = 20;
-
-constexpr int8_t HORIZONTAL_POD_PORT = 14;
-constexpr int8_t VERTICAL_POD_PORT = 17;
-constexpr int8_t DISTANCE_SENSOR_PORT = 10;
-constexpr int8_t GYRO_PORT = 5;
-// constexpr int8_t BALL_DISTANCE_PORT = 3;
+constexpr char HORIZONTAL_POD_PORT_1 = 'E';
+constexpr char HORIZONTAL_POD_PORT_2 = 'F';
+constexpr char VERTICAL_POD_PORT_1 = 'C';
+constexpr char VERTICAL_POD_PORT_2 = 'D';
+constexpr int8_t GYRO_PORT_TOP = 5;
+constexpr int8_t GYRO_PORT_BOTTOM = 4;
 
 constexpr double TRACK_WIDTH = 12;
 constexpr double WHEEL_DIAMETER = 3;
 constexpr double DRIVE_RPM = 600;
 constexpr double CHASE_POWER = 2;
-
-constexpr int32_t BALL_PRESENT_DISTANCE = 150;
-constexpr int INTAKE_INTAKING_DIRECTION = 1;
 
 constexpr double ODOM_WHEEL_DIAMETER = 2;
 constexpr double HORIZONTAL_WHEEL_DISTANCE = 1.5625;
@@ -80,20 +77,19 @@ pros::adi::DigitalOut bumper_right_solenoid(BUMBER_RIGHT_SOLENOID);
 pros::adi::DigitalOut bumper_left_solenoid(BUMPER_LEFT_SOLENOID);
 pros::adi::DigitalOut holder_right_solenoid(HOLDER_RIGHT_SOLENOID);
 pros::adi::DigitalOut holder_left_solenoid(HOLDER_LEFT_SOLENOID);
-pros::Distance ring_sensor(DISTANCE_SENSOR_PORT);
 
 pros::MotorGroup leftSide({FRONT_LEFT_PORT, MIDDLE_LEFT_PORT, -BACK_LEFT_PORT});
 pros::MotorGroup rightSide({-FRONT_RIGHT_PORT, -MIDDLE_RIGHT_PORT, BACK_RIGHT_PORT});
 pros::MotorGroup riGroup({INTAKE_PORT});
-pros::MotorGroup conveyorLiftGroup({CONVEYOR_LIFT_1_PORT, CONVEYOR_LIFT_2_PORT});
+pros::MotorGroup conveyorLiftGroup({CONVEYOR_LIFT_1_PORT, CONVEYOR_LIFT_2_PORT, CONVEYOR_LIFT_3_PORT, CONVEYOR_LIFT_4_PORT});
 pros::MotorGroup conveyorGroup({CONVEYOR_PORT});
-// pros::MotorGroup climbGroup({-CLIMB_1_PORT, CLIMB_2_PORT});
 
 // SENSORS
-pros::Rotation horizontalPod(HORIZONTAL_POD_PORT);
-pros::Rotation verticalPod(-VERTICAL_POD_PORT);
-pros::IMU gyro(GYRO_PORT);
-// pros::Distance ballDistance(BALL_DISTANCE_PORT);
+pros::adi::Encoder horizontalPod(VERTICAL_POD_PORT_1, VERTICAL_POD_PORT_2, true);
+pros::adi::Encoder verticalPod(HORIZONTAL_POD_PORT_1, HORIZONTAL_POD_PORT_2, false);
+pros::IMU gyro_top(GYRO_PORT_TOP);
+pros::IMU gyro_bottom(GYRO_PORT_BOTTOM);
+MergedIMU gyro(&gyro_top, &gyro_bottom, true);
 
 // LEMLIB STRUCTURES
 
@@ -143,7 +139,6 @@ lemlib::Chassis chassis(LLDrivetrain, linearController, angularController, senso
 
 RollerIntake ri(riGroup);
 Indexer ind(bumper_right_solenoid, bumper_left_solenoid, holder_right_solenoid, holder_left_solenoid);
-// Climb climb(climbGroup);
 ConveyorLift conveyorlift(conveyorLiftGroup, 1);
 Conveyor conveyor(conveyorGroup);
 /**
@@ -161,8 +156,8 @@ const char *toString(RobotState state)
 		return "Driving";
 	case RobotState::Intaking:
 		return "Intaking";
-	case RobotState::Climbing:
-		return "Climbing";
+	case RobotState::SideStakes:
+		return "Side Stakes";
 	default:
 		return "Unknown State";
 	}
@@ -176,56 +171,28 @@ void setcurrentstate(RobotState state)
 	{
 		leftSide.set_current_limit_all(2500);
 		rightSide.set_current_limit_all(2500);
-		riGroup.set_current_limit_all(0);
-		// climbGroup.set_current_limit_all(0);
+		riGroup.set_current_limit_all(2500);
+		conveyorGroup.set_current_limit_all(2500);
+		conveyorLiftGroup.set_current_limit_all(0);
 	}
 
 	if (state == RobotState::Intaking)
 	{
-		leftSide.set_current_limit_all(2200);
-		rightSide.set_current_limit_all(2200);
-		riGroup.set_current_limit_all(2400);
-		// climbGroup.set_current_limit_all(0);
+		leftSide.set_current_limit_all(2500);
+		rightSide.set_current_limit_all(2500);
+		riGroup.set_current_limit_all(2500);
+		conveyorGroup.set_current_limit_all(2500);
+		conveyorLiftGroup.set_current_limit_all(0);
 	}
 
-	if (state == RobotState::Climbing)
+	if (state == RobotState::SideStakes)
 	{
+		leftSide.set_current_limit_all(1500);
+		rightSide.set_current_limit_all(1500);
 		riGroup.set_current_limit_all(0);
-		// climbGroup.set_current_limit_all(2500);
-		leftSide.set_current_limit_all(1875);
-		rightSide.set_current_limit_all(1875);
+		conveyorGroup.set_current_limit_all(1000);
+		conveyorLiftGroup.set_current_limit_all(2500);
 	}
-}
-
-void intake_rings_for_side_stakes()
-{
-	ri.spin(ri.STANDARD_MV);
-	bool ringPresent = false;
-	bool first_ring_on = false;
-	bool ready_to_rise = false;
-	if (ring_sensor.get() < 100)
-	{
-		ringPresent = true;
-	}
-	if (ringPresent)
-	{
-		if (!first_ring_on)
-		{
-			conveyor.move_to_location(conveyor.first_ring_location);
-			first_ring_on = true;
-		}
-		else
-		{
-			conveyor.move_to_location(conveyor.second_ring_location);
-			ri.spin(0);
-			ready_to_rise = true;
-		}
-	}
-	if(ready_to_rise)
-	{
-		conveyorlift.moveTo(ConveyorPosition::SIDE);
-	}
-
 }
 
 void initialize()
@@ -257,19 +224,7 @@ void initialize()
 
 void autoIntakeManager()
 {
-	while (!pros::competition::is_autonomous())
-	{
-		pros::delay(10);
-	}
-	while (pros::competition::is_autonomous())
-	{
-		// if (ballDistance.get() < BALL_PRESENT_DISTANCE && riGroup.get_direction_all()[0] == INTAKE_INTAKING_DIRECTION)
-		// {
-		// 	riGroup.move(0);
-		// }
 
-		pros::delay(10);
-	}
 }
 
 // Link to curve
@@ -321,27 +276,27 @@ void pollController()
 
 	if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_A))
 	{
-		if (robotState != RobotState::Climbing)
+		if (robotState != RobotState::SideStakes)
 		{
-			robotState = RobotState::Climbing;
+			robotState = RobotState::SideStakes;
 			setcurrentstate(robotState);
 		}
 		// climb.moveClimb(-12000);
 	}
 	else if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_LEFT))
 	{
-		if (robotState != RobotState::Climbing)
+		if (robotState != RobotState::SideStakes)
 		{
-			robotState = RobotState::Climbing;
+			robotState = RobotState::SideStakes;
 			setcurrentstate(robotState);
 		}
 		// climb.moveClimb(12000);
 	}
 	else if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R2))
 	{
-		if (robotState != RobotState::Climbing)
+		if (robotState != RobotState::SideStakes)
 		{
-			robotState = RobotState::Climbing;
+			robotState = RobotState::SideStakes;
 			setcurrentstate(robotState);
 		}
 		// climb.deployClimb_J();
