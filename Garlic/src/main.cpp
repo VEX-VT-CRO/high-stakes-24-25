@@ -29,20 +29,20 @@ enum class RobotState
 
 bool auto_climb_state = false;
 
-constexpr int8_t FRONT_LEFT_PORT = 1;
-constexpr int8_t MIDDLE_LEFT_PORT = 2;
-constexpr int8_t BACK_LEFT_PORT = 13;
-constexpr int8_t FRONT_RIGHT_PORT = 10;
-constexpr int8_t MIDDLE_RIGHT_PORT = 8;
-constexpr int8_t BACK_RIGHT_PORT = 17;
+constexpr int8_t FRONT_LEFT_PORT = 18;
+constexpr int8_t MIDDLE_LEFT_PORT = 17;
+constexpr int8_t BACK_LEFT_PORT = 16;
+constexpr int8_t FRONT_RIGHT_PORT = 1;
+constexpr int8_t MIDDLE_RIGHT_PORT = 6;
+constexpr int8_t BACK_RIGHT_PORT = 8;
 
-constexpr int8_t INTAKE_PORT = 6;
-constexpr int8_t CONVEYOR_PORT = 7;
+constexpr int8_t INTAKE_PORT = 11;
+constexpr int8_t CONVEYOR_PORT = 12;
 
-constexpr int8_t CONVEYOR_LIFT_LEFT_FRONT_PORT = 11;
+constexpr int8_t CONVEYOR_LIFT_LEFT_FRONT_PORT = 13;
 constexpr int8_t CONVEYOR_LIFT_RIGHT_FRONT_PORT = 20;
-constexpr int8_t CONVEYOR_LIFT_LEFT_BACK_PORT = 19;
-constexpr int8_t CONVEYOR_LIFT_RIGHT_BACK_PORT = 18;
+constexpr int8_t CONVEYOR_LIFT_LEFT_BACK_PORT = 14;
+constexpr int8_t CONVEYOR_LIFT_RIGHT_BACK_PORT = 19;
 
 constexpr char HORIZONTAL_POD_PORT_1 = 'E';
 constexpr char HORIZONTAL_POD_PORT_2 = 'F';
@@ -80,7 +80,7 @@ pros::adi::DigitalOut holder_left_solenoid(HOLDER_LEFT_SOLENOID);
 pros::MotorGroup leftSide({FRONT_LEFT_PORT, MIDDLE_LEFT_PORT, -BACK_LEFT_PORT});
 pros::MotorGroup rightSide({-FRONT_RIGHT_PORT, -MIDDLE_RIGHT_PORT, BACK_RIGHT_PORT});
 pros::MotorGroup riGroup({INTAKE_PORT});
-pros::MotorGroup conveyorLiftGroup({CONVEYOR_LIFT_LEFT_BACK_PORT, -CONVEYOR_LIFT_LEFT_FRONT_PORT, CONVEYOR_LIFT_RIGHT_BACK_PORT, -CONVEYOR_LIFT_RIGHT_FRONT_PORT});
+pros::MotorGroup conveyorLiftGroup({CONVEYOR_LIFT_LEFT_BACK_PORT, -CONVEYOR_LIFT_LEFT_FRONT_PORT, -CONVEYOR_LIFT_RIGHT_BACK_PORT, CONVEYOR_LIFT_RIGHT_FRONT_PORT});
 pros::MotorGroup conveyorGroup({CONVEYOR_PORT});
 
 // SENSORS
@@ -201,6 +201,7 @@ void initialize()
 
 	leftSide.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_BRAKE);
 	rightSide.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_BRAKE);
+	conveyorLiftGroup.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_BRAKE);
 
 	pros::Task screenTask([&]()
 						  {
@@ -282,9 +283,57 @@ void pollController()
    		conveyorlift.toggle();
 	}
 
+	if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_UP))
+	{
+		if (robotState != RobotState::SideStakes)
+		{
+			robotState = RobotState::SideStakes;
+			setcurrentstate(robotState);
+		}
+		conveyorLiftGroup.move_velocity(30);
+	}
+	else if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_DOWN))
+	{
+		if (robotState != RobotState::SideStakes)
+		{
+			robotState = RobotState::SideStakes;
+			setcurrentstate(robotState);
+		}
+		conveyorLiftGroup.move_velocity(-30);
+	}
+	else
+	{
+		conveyorLiftGroup.move_voltage(0);
+	}
+
+	if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_RIGHT))
+	{
+		if (robotState != RobotState::Intaking)
+		{
+			robotState = RobotState::Intaking;
+			setcurrentstate(robotState);
+		}
+		conveyorGroup.move_velocity(200);
+	}
+	else if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_LEFT))
+	{
+		if (robotState != RobotState::Intaking)
+		{
+			robotState = RobotState::Intaking;
+			setcurrentstate(robotState);
+		}
+		conveyorGroup.move_velocity(-200);
+	}
+	else
+	{
+		conveyorGroup.move_voltage(0);
+	}
+
 	if (!driver.get_digital(pros::E_CONTROLLER_DIGITAL_R1) &&
 		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_R2) &&
-		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_L1))
+		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_L1) &&
+		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_UP) &&
+		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_DOWN))
 	{
 		if (robotState != RobotState::Driving)
 		{

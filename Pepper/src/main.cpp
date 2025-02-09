@@ -218,7 +218,7 @@ void pollController()
 			setcurrentstate(robotState);
 		}
 		ri.spin(600);
-		conveyor.spin(600);
+		conveyor.spin(100);
 	}
 	else if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_R2))
 	{
@@ -228,7 +228,7 @@ void pollController()
 			setcurrentstate(robotState);
 		}
 		ri.spin(-600);
-		conveyor.spin(-600);
+		conveyor.spin(-100);
 	}
 	else
 	{
