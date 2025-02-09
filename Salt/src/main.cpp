@@ -237,6 +237,8 @@ void initialize()
 #endif
             pros::lcd::print(5, "Robot State: %s", toString(robotState));
             pros::lcd::print(6, "Alliance Color: %s", toString(alliance_color));
+			double positions = sideStakesGroup.get_position();
+			pros::lcd::print(7, "Positions: %f", positions);
             lemlib::telemetrySink()->info("Chassis pose: {}", chassis.getPose());
             pros::delay(50);
         }
@@ -318,7 +320,25 @@ void pollController()
 		ind.openWing();
 	}
 
+	if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_L2)) {
+    	if (robotState != RobotState::SideStakes) {
+        	robotState = RobotState::SideStakes;
+        	setcurrentstate(robotState);
+    	}
+    	static int ssSeqIndex = 0;
+    	static const SideStakesPosition ssSequence[] = {
+        	SideStakesPosition::STOCK,
+        	SideStakesPosition::LOAD,
+        	SideStakesPosition::SIDESTAKES,
+        	SideStakesPosition::LOAD
+    	};
+    	const int sequenceLength = sizeof(ssSequence) / sizeof(ssSequence[0]);
+    	ssSeqIndex = (ssSeqIndex + 1) % sequenceLength;
+    	sideStakes.moveTo(ssSequence[ssSeqIndex]);
+	}
+
 	if (!driver.get_digital(pros::E_CONTROLLER_DIGITAL_L1) &&
+		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_L2) &&
 		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_R2) &&
 		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_R1) &&
 		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_DOWN))
@@ -336,7 +356,8 @@ ASSET(J_M_1_txt);
 
 void qual_auto()
 {
-
+	chassis.setPose({0, 0, 90});
+	chassis.turnToHeading(180, 2000);
 }
 
 void match_auto()
