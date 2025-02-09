@@ -53,6 +53,7 @@ constexpr int8_t SIDESTAKES_PORT = 7;
 constexpr int8_t GYRO_PORT_TOP = 17;
 constexpr int8_t GYRO_PORT_BOTTOM = 16;
 constexpr int8_t OPTICAL_PORT = 10;
+constexpr int8_t ROTATION_PORT = 2;
 
 constexpr double TRACK_WIDTH = 18.375;
 constexpr double WHEEL_DIAMETER = 2.75;
@@ -93,6 +94,7 @@ pros::IMU gyro_top(GYRO_PORT_TOP);
 pros::IMU gyro_bottom(GYRO_PORT_BOTTOM);
 MergedIMU gyro(&gyro_top, &gyro_bottom, true);
 pros::Optical ringColor(OPTICAL_PORT);
+pros::Rotation rotationSensor(ROTATION_PORT);
 // LEMLIB STRUCTURES
 
 lemlib::TrackingWheel horizontalWheel(&horizontalPod, ODOM_WHEEL_DIAMETER, HORIZONTAL_WHEEL_DISTANCE);
@@ -221,6 +223,9 @@ void initialize()
     leftSide.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_COAST);
     rightSide.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_COAST);
     ringColor.set_led_pwm(50);
+	rotationSensor.set_position(0);
+	rotationSensor.set_reversed(true);
+	sideStakesGroup.set_encoder_units(pros::E_MOTOR_ENCODER_DEGREES);
 
     pros::Task screenTask([&]()
     {
@@ -236,9 +241,10 @@ void initialize()
             pros::lcd::print(4, "MATCH");
 #endif
             pros::lcd::print(5, "Robot State: %s", toString(robotState));
-            pros::lcd::print(6, "Alliance Color: %s", toString(alliance_color));
+            // pros::lcd::print(6, "Alliance Color: %s", toString(alliance_color));
 			double positions = sideStakesGroup.get_position();
-			pros::lcd::print(7, "Positions: %f", positions);
+			pros::lcd::print(6, "Positions: %f", positions);
+			pros::lcd::print(7, "Rotation: %d", rotationSensor.get_position()/100);
             lemlib::telemetrySink()->info("Chassis pose: {}", chassis.getPose());
             pros::delay(50);
         }
@@ -334,8 +340,8 @@ void pollController()
     	};
     	const int sequenceLength = sizeof(ssSequence) / sizeof(ssSequence[0]);
     	ssSeqIndex = (ssSeqIndex + 1) % sequenceLength;
-    	sideStakes.moveTo(ssSequence[ssSeqIndex]);
-	}
+    	sideStakes.moveTo(ssSequence[ssSeqIndex], rotationSensor);
+}
 
 	if (!driver.get_digital(pros::E_CONTROLLER_DIGITAL_L1) &&
 		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_L2) &&
