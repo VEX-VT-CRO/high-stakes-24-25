@@ -18,10 +18,12 @@ class ConveyorLift
         ConveyorLift(pros::MotorGroup& m, int extendedPosition);
         void moveTo(ConveyorPosition pos);
         ConveyorPosition getPosition();
+        void toggle();
     private:
         pros::MotorGroup& motors;
         ConveyorPosition position;
         double extendedPos;
+        bool goingUp;
 };
 
 #endif

@@ -5,7 +5,7 @@ RollerIntake::RollerIntake(pros::MotorGroup& m) : motors{m}
     
 }
 
-void RollerIntake::spin(int mV)
+void RollerIntake::spin(int rpm)
 {
-    motors.move_voltage(mV);
+    motors.move_velocity(rpm);
 }

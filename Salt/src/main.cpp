@@ -21,7 +21,8 @@ enum class RobotState
 {
 	Driving,
 	Intaking,
-	SideStakes
+	SideStakes,
+	Autonomous
 };
 
 enum class AllianceColor
@@ -158,6 +159,8 @@ const char *toString(RobotState state)
 		return "Intaking";
 	case RobotState::SideStakes:
 		return "SideStakes";
+	case RobotState::Autonomous:
+		return "Autonomous";	
 	default:
 		return "Unknown State";
 	}
@@ -208,6 +211,14 @@ void setcurrentstate(RobotState state)
 		riGroup.set_current_limit_all(0);
 		conveyorGroup.set_current_limit_all(0);
 		sideStakesGroup.set_current_limit_all(2500);
+	}
+	if (state == RobotState::Autonomous)
+	{
+		leftSide.set_current_limit_all(1500);
+		rightSide.set_current_limit_all(1500);
+		riGroup.set_current_limit_all(2000);
+		conveyorGroup.set_current_limit_all(2500);
+		sideStakesGroup.set_current_limit_all(1500);
 	}
 }
 
@@ -354,9 +365,43 @@ void pollController()
 
 ASSET(J_M_1_txt);
 
+void start_intake()
+{
+	conveyor.spin(500);
+	ri.spin(600);
+}
+void stop_intake()
+{
+	conveyor.spin(0);
+	ri.spin(0);
+}
+
+void deploy_clamp()
+{
+	ind.openClamp();
+}
+
+void deploy_wing()
+{
+	ind.openWing();
+}
+
+void toggle_stakes(){
+	static int ssSeqIndex = 0;
+    static const SideStakesPosition ssSequence[] = {
+        SideStakesPosition::STOCK,
+        SideStakesPosition::LOAD,
+        SideStakesPosition::SIDESTAKES,
+        SideStakesPosition::LOAD
+    };
+    const int sequenceLength = sizeof(ssSequence) / sizeof(ssSequence[0]);
+    ssSeqIndex = (ssSeqIndex + 1) % sequenceLength;
+    sideStakes.moveTo(ssSequence[ssSeqIndex], rotationSensor);
+}
 
 void qual_auto()
 {
+	setcurrentstate(RobotState::Autonomous);
 	chassis.setPose({0, 0, 90});
 	chassis.turnToHeading(180, 2000);
 }

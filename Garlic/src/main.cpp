@@ -6,7 +6,6 @@
 #include "lemlib/util.hpp"
 #include "subsystems/rollerIntake.hpp"
 #include "subsystems/indexer.hpp"
-#include "subsystems/climb.hpp"
 #include "subsystems/conveyorlift.hpp"
 #include "subsystems/conveyor.hpp"
 #include "subsystems/mergedIMU.hpp"
@@ -40,10 +39,10 @@ constexpr int8_t BACK_RIGHT_PORT = 17;
 constexpr int8_t INTAKE_PORT = 6;
 constexpr int8_t CONVEYOR_PORT = 7;
 
-constexpr int8_t CONVEYOR_LIFT_1_PORT = 11;
-constexpr int8_t CONVEYOR_LIFT_2_PORT = 20;
-constexpr int8_t CONVEYOR_LIFT_3_PORT = 19;
-constexpr int8_t CONVEYOR_LIFT_4_PORT = 18;
+constexpr int8_t CONVEYOR_LIFT_LEFT_FRONT_PORT = 11;
+constexpr int8_t CONVEYOR_LIFT_RIGHT_FRONT_PORT = 20;
+constexpr int8_t CONVEYOR_LIFT_LEFT_BACK_PORT = 19;
+constexpr int8_t CONVEYOR_LIFT_RIGHT_BACK_PORT = 18;
 
 constexpr char HORIZONTAL_POD_PORT_1 = 'E';
 constexpr char HORIZONTAL_POD_PORT_2 = 'F';
@@ -61,10 +60,10 @@ constexpr double ODOM_WHEEL_DIAMETER = 2;
 constexpr double HORIZONTAL_WHEEL_DISTANCE = 1.5625;
 constexpr double VERTICAL_WHEEL_DISTANCE = -4.0625;
 
-constexpr char BUMPER_LEFT_SOLENOID = 'B';
-constexpr char BUMBER_RIGHT_SOLENOID = 'A';
-constexpr char HOLDER_LEFT_SOLENOID = 'C';
-constexpr char HOLDER_RIGHT_SOLENOID = 'D';
+constexpr char BUMPER_LEFT_SOLENOID = 'Z';
+constexpr char BUMBER_RIGHT_SOLENOID = 'Z';
+constexpr char HOLDER_LEFT_SOLENOID = 'Z';
+constexpr char HOLDER_RIGHT_SOLENOID = 'Z';
 
 pros::Controller driver(pros::controller_id_e_t::E_CONTROLLER_MASTER);
 
@@ -81,12 +80,12 @@ pros::adi::DigitalOut holder_left_solenoid(HOLDER_LEFT_SOLENOID);
 pros::MotorGroup leftSide({FRONT_LEFT_PORT, MIDDLE_LEFT_PORT, -BACK_LEFT_PORT});
 pros::MotorGroup rightSide({-FRONT_RIGHT_PORT, -MIDDLE_RIGHT_PORT, BACK_RIGHT_PORT});
 pros::MotorGroup riGroup({INTAKE_PORT});
-pros::MotorGroup conveyorLiftGroup({CONVEYOR_LIFT_1_PORT, CONVEYOR_LIFT_2_PORT, CONVEYOR_LIFT_3_PORT, CONVEYOR_LIFT_4_PORT});
+pros::MotorGroup conveyorLiftGroup({CONVEYOR_LIFT_LEFT_BACK_PORT, -CONVEYOR_LIFT_LEFT_FRONT_PORT, CONVEYOR_LIFT_RIGHT_BACK_PORT, -CONVEYOR_LIFT_RIGHT_FRONT_PORT});
 pros::MotorGroup conveyorGroup({CONVEYOR_PORT});
 
 // SENSORS
-pros::adi::Encoder horizontalPod(VERTICAL_POD_PORT_1, VERTICAL_POD_PORT_2, true);
-pros::adi::Encoder verticalPod(HORIZONTAL_POD_PORT_1, HORIZONTAL_POD_PORT_2, false);
+pros::adi::Encoder horizontalPod(VERTICAL_POD_PORT_1, VERTICAL_POD_PORT_2, false);
+pros::adi::Encoder verticalPod(HORIZONTAL_POD_PORT_1, HORIZONTAL_POD_PORT_2, true);
 pros::IMU gyro_top(GYRO_PORT_TOP);
 pros::IMU gyro_bottom(GYRO_PORT_BOTTOM);
 MergedIMU gyro(&gyro_top, &gyro_bottom, true);
@@ -250,7 +249,7 @@ float expCurve(float input, float curveGain)
 // Poll controller for input
 void pollController()
 {
-	if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_L1))
+	if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_R1))
 	{
 		if (robotState != RobotState::Intaking)
 		{
@@ -259,7 +258,7 @@ void pollController()
 		}
 		ri.spin(ri.STANDARD_MV);
 	}
-	else if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_L2))
+	else if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_R2))
 	{
 		if (robotState != RobotState::Intaking)
 		{
@@ -273,44 +272,19 @@ void pollController()
 		ri.spin(0);
 	}
 
-
-	if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_A))
+	if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_L1))
 	{
 		if (robotState != RobotState::SideStakes)
 		{
 			robotState = RobotState::SideStakes;
 			setcurrentstate(robotState);
 		}
-		// climb.moveClimb(-12000);
-	}
-	else if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_LEFT))
-	{
-		if (robotState != RobotState::SideStakes)
-		{
-			robotState = RobotState::SideStakes;
-			setcurrentstate(robotState);
-		}
-		// climb.moveClimb(12000);
-	}
-	else if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R2))
-	{
-		if (robotState != RobotState::SideStakes)
-		{
-			robotState = RobotState::SideStakes;
-			setcurrentstate(robotState);
-		}
-		// climb.deployClimb_J();
-		auto_climb_state = true;
-	}
-	else
-	{
-		// climb.moveClimb(0);
+   		conveyorlift.toggle();
 	}
 
-	if (!driver.get_digital(pros::E_CONTROLLER_DIGITAL_L1) &&
-		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_L2) &&
-		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_A) &&
-		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_LEFT))
+	if (!driver.get_digital(pros::E_CONTROLLER_DIGITAL_R1) &&
+		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_R2) &&
+		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_L1))
 	{
 		if (robotState != RobotState::Driving)
 		{
@@ -408,17 +382,8 @@ void opcontrol()
 {
 	while (true)
 	{
-	// std::vector<double> positions = climbGroup.get_position_all();
-	// std::vector<double> targetPositions = climbGroup.get_target_position_all();
-		// if (!auto_climb_state)
-		// 	pollController();
-		// else if (abs(positions[0] - targetPositions[0]) < 0.5)
-		// 	auto_climb_state = false;
-		if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R2))
-		{
-			auto_climb_state = false;
-		}
-		int l = driver.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
+	pollController();
+	int l = driver.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
 #if defined(ARCADE)
 		int r = driver.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
 		// r = expCurve(r, 1.015);

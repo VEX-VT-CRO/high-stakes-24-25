@@ -13,8 +13,8 @@
 #define QUAL_AUTO
 // #define MATCH_AUTO
 
-// #define ARCADE
-#define TANK
+#define ARCADE
+// #define TANK
 
 // Use states to control current limits
 enum class RobotState
@@ -217,8 +217,8 @@ void pollController()
 			robotState = RobotState::Intaking;
 			setcurrentstate(robotState);
 		}
-		ri.spin(ri.STANDARD_MV);
-		conveyor.spin(conveyor.STANDARD_MV);
+		ri.spin(600);
+		conveyor.spin(600);
 	}
 	else if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_R2))
 	{
@@ -227,8 +227,8 @@ void pollController()
 			robotState = RobotState::Intaking;
 			setcurrentstate(robotState);
 		}
-		ri.spin(-ri.STANDARD_MV);
-		conveyor.spin(-conveyor.STANDARD_MV);
+		ri.spin(-600);
+		conveyor.spin(-600);
 	}
 	else
 	{

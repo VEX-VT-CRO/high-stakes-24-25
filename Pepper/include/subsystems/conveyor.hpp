@@ -7,7 +7,6 @@
 class Conveyor
 {
     public:
-        const int STANDARD_MV = 12000;
         Conveyor(pros::MotorGroup& m);
         void spin(int rpm);
     private:
