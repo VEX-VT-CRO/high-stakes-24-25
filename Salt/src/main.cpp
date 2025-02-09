@@ -402,8 +402,22 @@ void toggle_stakes(){
 void qual_auto()
 {
 	setcurrentstate(RobotState::Autonomous);
-	chassis.setPose({0, 0, 90});
-	chassis.turnToHeading(180, 2000);
+	chassis.setPose({-58.5, 32, 270});
+	pros::delay(1000);
+	// ind.openWing();
+	// chassis.moveToPoint(-43.5, 32, 2000, {false}, false);
+	// chassis.turnToPoint(-15, 8, 2000, {false}, false);
+	// chassis.moveToPoint(-15, 8, 2000, {false}, false);
+	chassis.moveToPoint(-40.5, 32, 2000, {false}, false);
+	chassis.turnToHeading(180,2000);
+	chassis.moveToPoint(-40.5, 48, 2000, {false}, false);
+	chassis.turnToHeading(270,2000);
+	chassis.moveToPoint(-19.7, 46, 2000, {false}, true);
+	ind.openClamp();
+	// chassis.turnToPoint(-16.5, 39.8, 500, {false}, false);
+	// chassis.moveToPoint(-16.5, 39.8, 2000, {false}, false);
+
+
 }
 
 void match_auto()
