@@ -63,12 +63,12 @@ constexpr double ODOM_WHEEL_DIAMETER = 0.087890625;
 constexpr double HORIZONTAL_WHEEL_DISTANCE = 2.0625;
 constexpr double VERTICAL_WHEEL_DISTANCE = 2.4375;
 
-constexpr char LEFT_SOLENOID = 'A';
-constexpr char RIGHT_SOLENOID = 'B';
-constexpr char HORIZONTAL_POD_PORT_1 = 'E';
-constexpr char HORIZONTAL_POD_PORT_2 = 'F';
-constexpr char VERTICAL_POD_PORT_1 = 'C';
-constexpr char VERTICAL_POD_PORT_2 = 'D';
+constexpr char CLAMP_SOLENOID = 'G';
+constexpr char WING_SOLENOID = 'H';
+constexpr char HORIZONTAL_POD_PORT_1 = 'C';
+constexpr char HORIZONTAL_POD_PORT_2 = 'D';
+constexpr char VERTICAL_POD_PORT_1 = 'E';
+constexpr char VERTICAL_POD_PORT_2 = 'F';
 
 pros::Controller driver(pros::controller_id_e_t::E_CONTROLLER_MASTER);
 
@@ -76,8 +76,8 @@ RobotState robotState = RobotState::Driving;
 AllianceColor alliance_color = AllianceColor::No_Ring;
 
 // MOTORS and PNEUMATICS
-pros::adi::DigitalOut right_solenoid(RIGHT_SOLENOID);
-pros::adi::DigitalOut left_solenoid(LEFT_SOLENOID);
+pros::adi::DigitalOut clamp_solenoid(CLAMP_SOLENOID);
+pros::adi::DigitalOut wing_solenoid(WING_SOLENOID);
 
 pros::MotorGroup leftSide({-FRONT_LEFT_PORT, -MIDDLE_FRONT_LEFT_PORT, -MIDDLE_BACK_LEFT_PORT, -BACK_LEFT_PORT});
 pros::MotorGroup rightSide({FRONT_RIGHT_PORT, MIDDLE_FRONT_RIGHT_PORT, MIDDLE_BACK_RIGHT_PORT, BACK_RIGHT_PORT});
@@ -86,14 +86,12 @@ pros::MotorGroup conveyorGroup({CONVEYOR_PORT});
 pros::MotorGroup sideStakesGroup({SIDESTAKES_PORT});
 
 // SENSORS
-pros::adi::Encoder horizontalPod(HORIZONTAL_POD_PORT_1, HORIZONTAL_POD_PORT_2);
-pros::adi::Encoder verticalPod(VERTICAL_POD_PORT_1, VERTICAL_POD_PORT_2);
+pros::adi::Encoder horizontalPod(VERTICAL_POD_PORT_1, VERTICAL_POD_PORT_2, false);
+pros::adi::Encoder verticalPod(HORIZONTAL_POD_PORT_1, HORIZONTAL_POD_PORT_2, true);
 
 pros::IMU gyro_top(GYRO_PORT_TOP);
 pros::IMU gyro_bottom(GYRO_PORT_BOTTOM);
 MergedIMU gyro(&gyro_top, &gyro_bottom, true);
-pros::adi::Encoder horizontalEncoder(VERTICAL_POD_PORT_1, VERTICAL_POD_PORT_2, true);
-pros::adi::Encoder verticalEncoder(HORIZONTAL_POD_PORT_1, HORIZONTAL_POD_PORT_2, false);
 pros::Optical ringColor(OPTICAL_PORT);
 // LEMLIB STRUCTURES
 
@@ -109,26 +107,26 @@ lemlib::Drivetrain LLDrivetrain(
 	CHASE_POWER);
 
 lemlib::ControllerSettings linearController(
-	10,	 // proportional gain (kP)
+	34,	 // proportional gain (kP)
 	0,	 // integral gain (kI)
-	120, // derivative gain (kD)
-	3,	 // anti windup
+	150, // derivative gain (kD)
+	0,	 // anti windup
 	1,	 // small error range, in inches
 	100, // small error range timeout, in milliseconds
 	3,	 // large error range, in inches
 	500, // large error range timeout, in milliseconds
-	10	 // maximum acceleration (slew)
+	20	 // maximum acceleration (slew)
 );
 
 lemlib::ControllerSettings angularController(
-	2,	 // proportional gain (kP)
+	5.5,	 // proportional gain (kP)
 	0,	 // integral gain (kI)
-	10,	 // derivative gain (kD)
-	3,	 // anti windup
-	1,	 // small error range, in degrees
+	35,	 // derivative gain (kD)
+	0,	 // anti windup
+	5,	 // small error range, in degrees
 	100, // small error range timeout, in milliseconds
-	3,	 // large error range, in degrees
-	500, // large error range timeout, in milliseconds
+	10,	 // large error range, in degrees
+	300, // large error range timeout, in milliseconds
 	0	 // maximum acceleration (slew)
 );
 
@@ -142,7 +140,7 @@ lemlib::OdomSensors sensors(
 lemlib::Chassis chassis(LLDrivetrain, linearController, angularController, sensors);
 
 RollerIntake ri(riGroup);
-Indexer ind(left_solenoid, right_solenoid);
+Indexer ind(clamp_solenoid, wing_solenoid);
 SideStakes sideStakes(sideStakesGroup);
 Conveyor conveyor(conveyorGroup);
 /**
@@ -312,12 +310,18 @@ void pollController()
 
 	if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_L1))
 	{
-		ind.clamp();
+		ind.openClamp();
+	}
+
+	if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_DOWN))
+	{
+		ind.openWing();
 	}
 
 	if (!driver.get_digital(pros::E_CONTROLLER_DIGITAL_L1) &&
 		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_R2) &&
-		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_R1))
+		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_R1) &&
+		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_DOWN))
 	{
 		if (robotState != RobotState::Driving)
 		{
@@ -332,24 +336,7 @@ ASSET(J_M_1_txt);
 
 void qual_auto()
 {
-	chassis.setPose({0, 0, 90});
-	chassis.moveToPoint(95, 0, 2000, {}, false);
-	pros::delay(100);
-	chassis.turnToHeading(0, 2000);
-	pros::delay(100);
-	chassis.moveToPoint(95, 95, 2000, {}, false);
-	pros::delay(100);
-	chassis.turnToHeading(270, 2000);
-	pros::delay(100);
-	chassis.moveToPoint(20, 95, 2000, {}, false);
-	pros::delay(100);
-	chassis.turnToHeading(180, 2000);
-	pros::delay(100);
-	chassis.moveToPoint(20, 0, 2000, {}, false);
-	pros::delay(100);
-	chassis.turnToHeading(90, 2000);
-	pros::delay(100);
-	chassis.moveToPoint(0, 0, 2000, {false}, false);
+
 }
 
 void match_auto()

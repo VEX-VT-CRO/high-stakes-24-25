@@ -10,18 +10,17 @@ class Indexer
         Indexer(pros::adi::DigitalOut& r, pros::adi::DigitalOut& l);
         
         // Public methods for controlling the solenoids
-        void clamp();
-        void openLeft();
-        void openRight();
+        void openClamp();
+        void openWing();
     
     private:
         // Member variables with updated type definitions
-        pros::adi::DigitalOut& right_solenoid;
-        pros::adi::DigitalOut& left_solenoid;
+        pros::adi::DigitalOut& clamp_solenoid;
+        pros::adi::DigitalOut& wing_solenoid;
 
         // State tracking for the solenoids
-        bool open_left;
-        bool open_right;
+        bool open_clamp;
+        bool open_wing;
 };
 
 #endif

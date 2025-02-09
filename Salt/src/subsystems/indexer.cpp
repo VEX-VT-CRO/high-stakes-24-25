@@ -2,39 +2,34 @@
 #include "pros/rtos.hpp"
 
 Indexer::Indexer(pros::adi::DigitalOut& s1, pros::adi::DigitalOut& s2) 
-    : right_solenoid(s1), left_solenoid(s2)
+    : clamp_solenoid(s1), wing_solenoid(s2)
 {
-    open_left = false;
-    open_right = false;
+    open_clamp = false;
+    open_wing = false;
 
-}
-
-void Indexer::clamp()
-{
-    openLeft();
-    openRight();
 }
 
 
 
-void Indexer::openLeft()
+
+void Indexer::openClamp()
 {
-    if (!open_left) {
-        left_solenoid.set_value(1); // Activate solenoid
-        open_left = true; 
+    if (!open_clamp) {
+        clamp_solenoid.set_value(1); // Activate solenoid
+        open_clamp = true; 
     } else {
-        left_solenoid.set_value(0); // Deactivate solenoid
-        open_left = false;
+        clamp_solenoid.set_value(0); // Deactivate solenoid
+        open_clamp = false;
     }
 }
 
-void Indexer::openRight()
+void Indexer::openWing()
 {
-    if (!open_right) {
-        right_solenoid.set_value(1); // Activate solenoid
-        open_right = true; 
+    if (!open_wing) {
+        wing_solenoid.set_value(1); // Activate solenoid
+        open_wing = true; 
     } else {
-        right_solenoid.set_value(0); // Deactivate solenoid
-        open_right = false;
+        wing_solenoid.set_value(0); // Deactivate solenoid
+        open_wing = false;
     }
 }
