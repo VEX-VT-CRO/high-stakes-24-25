@@ -25,8 +25,6 @@ enum class RobotState
 
 // Initialize ports and key variables
 
-bool auto_climb_state = false;
-
 constexpr int8_t FRONT_LEFT_PORT = 7;
 constexpr int8_t MIDDLE_FRONT_LEFT_PORT = 8;
 constexpr int8_t MIDDLE_BACK_LEFT_PORT = 9;

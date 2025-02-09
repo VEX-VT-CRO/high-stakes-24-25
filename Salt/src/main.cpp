@@ -24,10 +24,6 @@ enum class RobotState
 	SideStakes
 };
 
-// Initialize ports and key variables
-
-bool auto_climb_state = false;
-
 enum class AllianceColor
 {
 	Red,
@@ -241,9 +237,8 @@ void initialize()
             pros::lcd::print(4, "MATCH");
 #endif
             pros::lcd::print(5, "Robot State: %s", toString(robotState));
-            // pros::lcd::print(6, "Alliance Color: %s", toString(alliance_color));
+            pros::lcd::print(6, "Alliance Color: %s", toString(alliance_color));
 			double positions = sideStakesGroup.get_position();
-			pros::lcd::print(6, "Positions: %f", positions);
 			pros::lcd::print(7, "Rotation: %d", rotationSensor.get_position()/100);
             lemlib::telemetrySink()->info("Chassis pose: {}", chassis.getPose());
             pros::delay(50);
@@ -426,12 +421,7 @@ void opcontrol()
 {
 	while (true)
 	{
-		if (!auto_climb_state)
-			pollController();
-		if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R2))
-		{
-			auto_climb_state = false;
-		}
+		pollController();
 		int l = driver.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
 #if defined(ARCADE)
 		int r = driver.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
