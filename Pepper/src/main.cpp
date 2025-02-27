@@ -13,8 +13,8 @@
 #define QUAL_AUTO
 // #define MATCH_AUTO
 
-#define ARCADE
-// #define TANK
+// #define ARCADE
+#define TANK
 
 // Use states to control current limits
 enum class RobotState
@@ -275,7 +275,25 @@ ASSET(J_M_1_txt);
 
 void qualJ()
 {
+	const double ROTATION_FACTOR = 1.0 / (2.75 * 3.14);
+    //43.86 / (2.75 * 3.14)
+    leftSide.set_encoder_units_all(pros::motor_encoder_units_e_t::E_MOTOR_ENCODER_ROTATIONS);
+    rightSide.set_encoder_units_all(pros::motor_encoder_units_e_t::E_MOTOR_ENCODER_ROTATIONS);
+    leftSide.move_relative(-60 * ROTATION_FACTOR, 600);
+    rightSide.move_relative(-60 * ROTATION_FACTOR, 600);
 
+    leftSide.brake();
+    rightSide.brake();
+
+    pros::delay(250);
+    ind.openClamp();
+    pros::delay(750);
+
+    leftSide.move_relative(30 * ROTATION_FACTOR, 600);
+    rightSide.move_relative(30 * ROTATION_FACTOR, 600);
+
+    leftSide.brake();
+    rightSide.brake();
 }
 
 void pickUpRing() {
