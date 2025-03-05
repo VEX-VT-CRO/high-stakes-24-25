@@ -30,11 +30,16 @@ enum class RiseControl
 	Back,
 	Both
 };
+
+void setcurrentstate(RobotState state);
+void moveConveyorLiftTo(ConveyorLift &conveyorLift, ConveyorPosition fromPos, ConveyorPosition toPos);
+void toggle();
+
 // Initialize ports and key variables
-
 bool riser_status = false;
+bool allianceMode = false;
 
-constexpr int8_t FRONT_LEFT_PORT = 16;
+constexpr int8_t FRONT_LEFT_PORT = 15;
 constexpr int8_t MIDDLE_LEFT_PORT = 17;
 constexpr int8_t BACK_LEFT_PORT = 18;
 constexpr int8_t FRONT_RIGHT_PORT = 1;
@@ -57,25 +62,23 @@ constexpr int8_t GYRO_PORT_TOP = 8;
 constexpr int8_t GYRO_PORT_BOTTOM = 10;
 
 constexpr double TRACK_WIDTH = 12;
-constexpr double WHEEL_DIAMETER = 3;
+constexpr double WHEEL_DIAMETER = 2.75;
 constexpr double DRIVE_RPM = 600;
-constexpr double CHASE_POWER = 2;
+constexpr double CHASE_POWER = 1.115;
 
 constexpr double ODOM_WHEEL_DIAMETER = 0.087890625;
-constexpr double HORIZONTAL_WHEEL_DISTANCE = 0.5;
-constexpr double VERTICAL_WHEEL_DISTANCE = -0.5;
+constexpr double HORIZONTAL_WHEEL_DISTANCE = -1;
+constexpr double VERTICAL_WHEEL_DISTANCE = -0.8;
 
-constexpr char STOPPER_SOLENOID_FRONT = 'D';
-constexpr char STOPPER_SOLENOID_BACK = 'C';
+constexpr char STOPPER_SOLENOID_FRONT = 'C';
+constexpr char STOPPER_SOLENOID_BACK = 'D';
 constexpr char HOLDER_SOLENOID = 'B';
 
 pros::Controller driver(pros::controller_id_e_t::E_CONTROLLER_MASTER);
 
 RobotState robotState = RobotState::Casual;
 
-
 RiseControl riserControl = RiseControl::Front;
-
 
 // MOTORS and PNEUMATICS
 pros::adi::DigitalOut stopper_solenoid_front(STOPPER_SOLENOID_FRONT);
@@ -84,14 +87,16 @@ pros::adi::DigitalOut holder_solenoid(HOLDER_SOLENOID);
 
 pros::MotorGroup leftSide({FRONT_LEFT_PORT, MIDDLE_LEFT_PORT, -BACK_LEFT_PORT});
 pros::MotorGroup rightSide({-FRONT_RIGHT_PORT, -MIDDLE_RIGHT_PORT, BACK_RIGHT_PORT});
-pros::MotorGroup riGroup({INTAKE_PORT});
-pros::MotorGroup conveyorLiftGroupFront({-CONVEYOR_LIFT_LEFT_FRONT_PORT, CONVEYOR_LIFT_RIGHT_FRONT_PORT});
-pros::MotorGroup conveyorLiftGroupBack({CONVEYOR_LIFT_LEFT_BACK_PORT, -CONVEYOR_LIFT_RIGHT_BACK_PORT});
-pros::MotorGroup conveyorGroup({CONVEYOR_PORT});
+pros::Motor intake(INTAKE_PORT);
+pros::Motor conveyorLiftLeftFront(-CONVEYOR_LIFT_LEFT_FRONT_PORT);
+pros::Motor conveyorLiftRightFront(CONVEYOR_LIFT_RIGHT_FRONT_PORT);
+pros::Motor conveyorLiftLeftBack(CONVEYOR_LIFT_LEFT_BACK_PORT);
+pros::Motor conveyorLiftRightBack(-CONVEYOR_LIFT_RIGHT_BACK_PORT);
+pros::Motor conveyorMotor(CONVEYOR_PORT);
 
 // SENSORS
-pros::adi::Encoder horizontalPod(VERTICAL_POD_PORT_1, VERTICAL_POD_PORT_2, false);
-pros::adi::Encoder verticalPod(HORIZONTAL_POD_PORT_1, HORIZONTAL_POD_PORT_2, true);
+pros::adi::Encoder horizontalPod(HORIZONTAL_POD_PORT_1, HORIZONTAL_POD_PORT_2, true);
+pros::adi::Encoder verticalPod(VERTICAL_POD_PORT_1, VERTICAL_POD_PORT_2, true);
 pros::IMU gyro_top(GYRO_PORT_TOP);
 pros::IMU gyro_bottom(GYRO_PORT_BOTTOM);
 MergedIMU gyro(&gyro_top, &gyro_bottom, true);
@@ -110,27 +115,27 @@ lemlib::Drivetrain LLDrivetrain(
 	CHASE_POWER);
 
 lemlib::ControllerSettings linearController(
-	10,	 // proportional gain (kP)
-	0,	 // integral gain (kI)
-	120, // derivative gain (kD)
-	3,	 // anti windup
-	1,	 // small error range, in inches
-	100, // small error range timeout, in milliseconds
-	3,	 // large error range, in inches
-	500, // large error range timeout, in milliseconds
-	10	 // maximum acceleration (slew)
+	0, // proportional gain (kP)
+	0, // integral gain (kI)
+	0, // derivative gain (kD)
+	0, // anti windup
+	0, // small error range, in inches
+	0, // small error range timeout, in milliseconds
+	0, // large error range, in inches
+	0, // large error range timeout, in milliseconds
+	0  // maximum acceleration (slew)
 );
 
 lemlib::ControllerSettings angularController(
-	2,	 // proportional gain (kP)
-	0,	 // integral gain (kI)
-	10,	 // derivative gain (kD)
-	3,	 // anti windup
-	1,	 // small error range, in degrees
-	100, // small error range timeout, in milliseconds
-	3,	 // large error range, in degrees
-	500, // large error range timeout, in milliseconds
-	0	 // maximum acceleration (slew)
+	7,	// proportional gain (kP)
+	0,	// integral gain (kI)
+	50, // derivative gain (kD)
+	0,	// anti windup
+	0,	// small error range, in degrees
+	0,	// small error range timeout, in milliseconds
+	0,	// large error range, in degrees
+	0,	// large error range timeout, in milliseconds
+	0	// maximum acceleration (slew)
 );
 
 lemlib::OdomSensors sensors(
@@ -142,10 +147,10 @@ lemlib::OdomSensors sensors(
 
 lemlib::Chassis chassis(LLDrivetrain, linearController, angularController, sensors);
 
-RollerIntake ri(riGroup);
+RollerIntake ri(intake);
 Indexer ind(holder_solenoid);
-ConveyorLift conveyorlift(conveyorLiftGroupFront, conveyorLiftGroupBack, stopper_solenoid_front, stopper_solenoid_back);
-Conveyor conveyor(conveyorGroup);
+ConveyorLift conveyorlift(conveyorLiftLeftFront, conveyorLiftRightFront, conveyorLiftLeftBack, conveyorLiftRightBack, stopper_solenoid_front, stopper_solenoid_back);
+Conveyor conveyor(conveyorMotor);
 /**
  * Runs initialization code. This occurs as soon as the program is started.
  *
@@ -181,7 +186,6 @@ const char *toString(RiseControl control)
 	}
 }
 
-// Set current limits based on robot state
 void setcurrentstate(RobotState state)
 {
 
@@ -189,21 +193,24 @@ void setcurrentstate(RobotState state)
 	{
 		leftSide.set_current_limit_all(2500);
 		rightSide.set_current_limit_all(2500);
-		riGroup.set_current_limit_all(2500);
-		conveyorGroup.set_current_limit_all(2500);
-		conveyorLiftGroupFront.set_current_limit_all(0);
-		conveyorLiftGroupBack.set_current_limit_all(0);
+		intake.set_current_limit(2500);
+		conveyorMotor.set_current_limit(2500);
+		conveyorLiftLeftFront.set_current_limit(0);
+		conveyorLiftRightFront.set_current_limit(0);
+		conveyorLiftLeftBack.set_current_limit(0);
+		conveyorLiftRightBack.set_current_limit(0);
 	}
-
 
 	if (state == RobotState::SideStakes)
 	{
 		leftSide.set_current_limit_all(1500);
 		rightSide.set_current_limit_all(1500);
-		riGroup.set_current_limit_all(0);
-		conveyorGroup.set_current_limit_all(1000);
-		conveyorLiftGroupFront.set_current_limit_all(2500);
-		conveyorLiftGroupBack.set_current_limit_all(2500);
+		intake.set_current_limit_all(0);
+		conveyorMotor.set_current_limit_all(1000);
+		conveyorLiftLeftFront.set_current_limit_all(2500);
+		conveyorLiftRightFront.set_current_limit_all(2500);
+		conveyorLiftLeftBack.set_current_limit_all(2500);
+		conveyorLiftRightBack.set_current_limit_all(2500);
 	}
 }
 
@@ -214,8 +221,10 @@ void initialize()
 
 	leftSide.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_COAST);
 	rightSide.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_COAST);
-	conveyorLiftGroupFront.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_BRAKE);
-	conveyorLiftGroupBack.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_BRAKE);
+	conveyorLiftLeftFront.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_BRAKE);
+	conveyorLiftRightFront.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_BRAKE);
+	conveyorLiftLeftBack.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_BRAKE);
+	conveyorLiftRightBack.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_BRAKE);
 
 	pros::Task screenTask([&]()
 						  {
@@ -239,7 +248,6 @@ void initialize()
 
 void autoIntakeManager()
 {
-
 }
 
 // Link to curve
@@ -263,136 +271,326 @@ float expCurve(float input, float curveGain)
 }
 
 // Poll controller for input
+// Poll controller for input
 void pollController()
 {
+	// Create a static variable to track manual mode
+	static bool manualMode = false;
+
+	// R1 and R2 for intake and conveyor based on lift position
 	if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_R2))
 	{
+		// Make sure we're in casual mode for intake/conveyor operation
 		if (robotState != RobotState::Casual)
 		{
 			robotState = RobotState::Casual;
 			setcurrentstate(robotState);
 		}
-		ri.spin(ri.STANDARD_MV);
+
+		// Different behavior based on conveyorlift position
+		if (conveyorlift.position == MOGO)
+		{
+			// In MOGO mode, spin both intake and conveyor
+			ri.spin(ri.STANDARD_MV);
+			conveyorMotor.move_velocity(200);
+		}
+		else if (conveyorlift.position == ALLIANCE || conveyorlift.position == SIDE)
+		{
+			// In ALLIANCE or SIDE mode, only spin the conveyor
+			ri.spin(0); // Ensure intake is off
+			conveyorMotor.move_velocity(200);
+		}
+		else if (conveyorlift.position == STOCK)
+		{
+			// In STOCK mode, don't spin either
+			ri.spin(0);
+			conveyorMotor.move_velocity(0);
+		}
 	}
 	else if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_R1))
 	{
+		// Make sure we're in casual mode for intake/conveyor operation
 		if (robotState != RobotState::Casual)
 		{
 			robotState = RobotState::Casual;
 			setcurrentstate(robotState);
 		}
-		ri.spin(-ri.STANDARD_MV);
+
+		// Different behavior based on conveyorlift position
+		if (conveyorlift.position == MOGO)
+		{
+			// In MOGO mode, spin both intake and conveyor in reverse
+			ri.spin(-ri.STANDARD_MV);
+			conveyorMotor.move_velocity(-200);
+		}
+		else if (conveyorlift.position == ALLIANCE || conveyorlift.position == SIDE)
+		{
+			// In ALLIANCE or SIDE mode, only spin the conveyor in reverse
+			ri.spin(0); // Ensure intake is off
+			conveyorMotor.move_velocity(-200);
+		}
+		else if (conveyorlift.position == STOCK)
+		{
+			// In STOCK mode, don't spin either
+			ri.spin(0);
+			conveyorMotor.move_velocity(0);
+		}
 	}
 	else
 	{
-		if(!pros::competition::is_autonomous()){
+		// Stop both when no buttons are pressed (unless in autonomous)
+		if (!pros::competition::is_autonomous())
+		{
 			ri.spin(0);
+			conveyorMotor.move_voltage(0);
 		}
 	}
 
+	// L1 for toggle function
 	if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_L1))
 	{
-		conveyorlift.openStopperFront();
+		toggle();
 	}
 
+	// L2 for goal clamp (previously on B)
 	if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_L2))
 	{
-		conveyorlift.openStopperBack();
+		ind.openHolder();
 	}
 
-	if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_UP))
+	// A button toggles manual mode
+	if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_A))
 	{
-		if (robotState != RobotState::SideStakes)
+		manualMode = !manualMode;
+	}
+
+	// In manual mode, handle riser control and pneumatics
+	if (manualMode)
+	{
+		// Up/Down for risers
+		if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_UP))
 		{
+			// Temporarily switch to Side Stakes mode for manual operation
+			RobotState previousState = robotState;
 			robotState = RobotState::SideStakes;
 			setcurrentstate(robotState);
-		}
-		if(riserControl == RiseControl::Front){
-			conveyorLiftGroupFront.move_velocity(30);
-		}
-		else if (riserControl == RiseControl::Back){
-			conveyorLiftGroupBack.move_velocity(30);
-		}
-		else{
-			conveyorLiftGroupFront.move_velocity(30);
-			conveyorLiftGroupBack.move_velocity(30);
-		}
-	}
-	else if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_DOWN))
-	{
-		if (robotState != RobotState::SideStakes)
-		{
-			robotState = RobotState::SideStakes;
-			setcurrentstate(robotState);
-		}
-		if(riserControl == RiseControl::Front){
-			conveyorLiftGroupFront.move_velocity(-30);
-		}
-		else if (riserControl == RiseControl::Back){
-			conveyorLiftGroupBack.move_velocity(-30);
-		}
-		else{
-			conveyorLiftGroupFront.move_velocity(-30);
-			conveyorLiftGroupBack.move_velocity(-30);
-		}
-	}
-	else
-	{
-		if(!pros::competition::is_autonomous()){
-			conveyorLiftGroupBack.move_voltage(0);
-			conveyorLiftGroupFront.move_voltage(0);
-		}
-	}
 
-	if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_RIGHT))
-	{
-		if (robotState != RobotState::Casual)
-		{
-			robotState = RobotState::Casual;
-			setcurrentstate(robotState);
-		}
-		conveyorGroup.move_velocity(400);
-	}
-	else if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_LEFT))
-	{
-		if (robotState != RobotState::Casual)
-		{
-			robotState = RobotState::Casual;
-			setcurrentstate(robotState);
-		}
-		conveyorGroup.move_velocity(-400);
-	}
-	else
-	{
-		if(!pros::competition::is_autonomous()){
-			conveyorGroup.move_voltage(0);
-		}
-	}
-
-	if(driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_A)){
-		int nextValue = (static_cast<int>(riserControl) + 1) % 3;
-		riserControl = static_cast<RiseControl>(nextValue);
-	}
-
-	if (!driver.get_digital(pros::E_CONTROLLER_DIGITAL_R1) &&
-		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_R2) &&
-		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_L1) &&
-		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_L2) &&
-		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_UP) &&
-		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_DOWN) &&
-		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_RIGHT) &&
-		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_LEFT) &&
-		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_A))
-	{
-		if(!pros::competition::is_autonomous()){
-			if (robotState != RobotState::Casual)
+			if (riserControl == RiseControl::Front)
 			{
-				robotState = RobotState::Casual;
-				setcurrentstate(robotState);
+				conveyorLiftLeftFront.move_velocity(30);
+				conveyorLiftRightFront.move_velocity(30);
 			}
-		}	
+			else if (riserControl == RiseControl::Back)
+			{
+				conveyorLiftLeftBack.move_velocity(30);
+				conveyorLiftRightBack.move_velocity(30);
+			}
+			else
+			{
+				conveyorLiftLeftFront.move_velocity(30);
+				conveyorLiftRightFront.move_velocity(30);
+				conveyorLiftLeftBack.move_velocity(30);
+				conveyorLiftRightBack.move_velocity(30);
+			}
+		}
+		else if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_DOWN))
+		{
+			// Temporarily switch to Side Stakes mode for manual operation
+			RobotState previousState = robotState;
+			robotState = RobotState::SideStakes;
+			setcurrentstate(robotState);
+
+			if (riserControl == RiseControl::Front)
+			{
+				conveyorLiftLeftFront.move_velocity(-30);
+				conveyorLiftRightFront.move_velocity(-30);
+			}
+			else if (riserControl == RiseControl::Back)
+			{
+				conveyorLiftLeftBack.move_velocity(-30);
+				conveyorLiftRightBack.move_velocity(-30);
+			}
+			else
+			{
+				conveyorLiftLeftFront.move_velocity(-30);
+				conveyorLiftRightFront.move_velocity(-30);
+				conveyorLiftLeftBack.move_velocity(-30);
+				conveyorLiftRightBack.move_velocity(-30);
+			}
+		}
+		else
+		{
+			// Stop motors when no button is pressed
+			if (!pros::competition::is_autonomous())
+			{
+				conveyorLiftLeftBack.move_voltage(0);
+				conveyorLiftRightBack.move_voltage(0);
+				conveyorLiftLeftFront.move_voltage(0);
+				conveyorLiftRightFront.move_voltage(0);
+
+				// Reset to Casual mode if we were temporarily in Side Stakes mode
+				if (robotState == RobotState::SideStakes)
+				{
+					robotState = RobotState::Casual;
+					setcurrentstate(robotState);
+				}
+			}
+		}
+
+		// Left/Right for pneumatics in manual mode
+		if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_RIGHT))
+		{
+			conveyorlift.openStopperFront();
+		}
+
+		if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_LEFT))
+		{
+			conveyorlift.openStopperBack();
+		}
+
+		// In manual mode, B cycles through the riser control modes
+		if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_B))
+		{
+			int nextValue = (static_cast<int>(riserControl) + 1) % 3;
+			riserControl = static_cast<RiseControl>(nextValue);
+		}
+	}
+
+	// X button toggles alliance mode
+	if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X))
+	{
+		allianceMode = !allianceMode;
+	}
+
+	// Y is not being used for anything in this new design
+}
+
+void toggle()
+{
+	switch (conveyorlift.position)
+	{
+	case STOCK:
+		// First transformation is always from STOCK to MOGO
+		moveConveyorLiftTo(conveyorlift, STOCK, MOGO);
+		conveyorlift.goingUp = true;
+		break;
+	case MOGO:
+		// From MOGO, go to ALLIANCE if allianceMode is true, otherwise go to SIDE
+		if (allianceMode)
+		{
+			moveConveyorLiftTo(conveyorlift, MOGO, ALLIANCE);
+			conveyorlift.goingUp = true;
+			allianceMode = false; // Reset after use
+		}
+		else
+		{
+			moveConveyorLiftTo(conveyorlift, MOGO, SIDE);
+			conveyorlift.goingUp = true;
+		}
+		break;
+	case ALLIANCE:
+		// From ALLIANCE, only go down to MOGO
+		moveConveyorLiftTo(conveyorlift, ALLIANCE, MOGO);
+		conveyorlift.goingUp = false;
+		break;
+	case SIDE:
+		// From SIDE, only go down to MOGO
+		moveConveyorLiftTo(conveyorlift, SIDE, MOGO);
+		conveyorlift.goingUp = false;
+		break;
+	default:
+		break;
 	}
 }
+
+void moveConveyorLiftTo(ConveyorLift &conveyorLift, ConveyorPosition fromPos, ConveyorPosition toPos)
+{
+	// Store original state to return to after movement
+	RobotState previousState = robotState;
+
+	// Set to Side Stakes mode for the movement
+	robotState = RobotState::SideStakes;
+	setcurrentstate(robotState);
+
+	// Update the position
+	conveyorLift.position = toPos;
+
+	// Handle different transitions
+	if (fromPos == STOCK && toPos == MOGO)
+	{
+		// STOCK to MOGO transition
+		conveyorLift.openStopperFront();
+		conveyorLift.motor_back_left.move_absolute(150, 150);
+		conveyorLift.motor_back_right.move_absolute(150, 150);
+		pros::delay(500);
+		conveyorLift.motor_back_left.move_voltage(6000);
+		conveyorLift.motor_back_right.move_voltage(6000);
+		pros::delay(200);
+		conveyorLift.openStopperBack();
+		conveyorLift.motor_back_left.move_voltage(0);
+		conveyorLift.motor_back_right.move_voltage(0);
+	}
+	else if (fromPos == MOGO && toPos == ALLIANCE)
+	{
+		// MOGO to ALLIANCE transition
+		conveyorLift.openStopperBack();
+		conveyorLift.openStopperFront();
+		pros::delay(100);
+		conveyorLift.motor_back_left.move_relative(80, 100);
+		conveyorLift.motor_back_right.move_relative(80, 100);
+		conveyorLift.motor_front_left.move_relative(80, 100);
+		conveyorLift.motor_front_right.move_relative(80, 100);
+		pros::delay(500);
+		conveyorLift.openStopperFront();
+		conveyorLift.motor_back_left.move_voltage(6000);
+		conveyorLift.motor_back_right.move_voltage(6000);
+		pros::delay(200);
+		conveyorLift.openStopperBack();
+		conveyorLift.motor_back_left.move_voltage(0);
+		conveyorLift.motor_back_right.move_voltage(0);
+	}
+	else if (fromPos == MOGO && toPos == SIDE)
+	{
+		// MOGO to SIDE transition
+		conveyorLift.openStopperBack();
+		conveyorLift.openStopperFront();
+		pros::delay(130);
+		conveyorLift.motor_back_left.move_relative(-20, 100);
+		conveyorLift.motor_back_right.move_relative(-20, 100);
+		pros::delay(100);
+		conveyorLift.motor_back_left.move_relative(380, 100);
+		conveyorLift.motor_back_right.move_relative(380, 100);
+		pros::delay(100);
+		conveyorLift.motor_front_left.move_relative(380, 100);
+		conveyorLift.motor_front_right.move_relative(380, 100);
+		pros::delay(900);
+		conveyorLift.openStopperFront();
+		conveyorLift.motor_back_left.move_voltage(6000);
+		conveyorLift.motor_back_right.move_voltage(6000);
+		pros::delay(200);
+		conveyorLift.openStopperBack();
+		conveyorLift.motor_back_left.move_voltage(0);
+		conveyorLift.motor_back_right.move_voltage(0);
+	}
+	else if (fromPos == ALLIANCE && toPos == MOGO)
+	{
+		// ALLIANCE to MOGO transition
+		// For now, empty placeholder
+		// Add implementation when ready
+	}
+	else if (fromPos == SIDE && toPos == MOGO)
+	{
+		// SIDE to MOGO transition
+		// For now, empty placeholder
+		// Add implementation when ready
+	}
+
+	// Return to previous state after movement is complete
+	robotState = previousState;
+	setcurrentstate(robotState);
+}
+
+// Set current limits based on robot state
 
 /**
  * Runs while the robot is in the disabled state of Field Management System or
@@ -416,16 +614,17 @@ ASSET(J_M_1_txt);
 
 void qualJ()
 {
-
+	chassis.setPose(0, 0, 0);
+	chassis.turnToHeading(90, 100000);
 }
 
 // The match function has the main calls you would do for an autonomous routine besides the non-drivebase motor calls
 void matchJ()
 {
-	
 }
 
-void autonomous_skills(){
+void autonomous_skills()
+{
 	chassis.setPose({-59, -59, 225});
 	pros::delay(100);
 	chassis.moveToPoint(-60.5, -60.5, 500, {false});
@@ -482,8 +681,8 @@ void opcontrol()
 {
 	while (true)
 	{
-	pollController();
-	int l = driver.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
+		pollController();
+		int l = driver.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
 #if defined(ARCADE)
 		int r = driver.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
 		// r = expCurve(r, 1.015);

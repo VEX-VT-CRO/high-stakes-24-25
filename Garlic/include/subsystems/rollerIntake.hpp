@@ -5,12 +5,13 @@
 
 class RollerIntake
 {
-    public:
-        const int STANDARD_MV = 12000;
-        RollerIntake(pros::MotorGroup& m);
-        void spin(int mV);
-    private:
-        pros::MotorGroup& motors;
+public:
+    const int STANDARD_MV = 12000;
+    RollerIntake(pros::Motor &m);
+    void spin(int mV);
+
+private:
+    pros::Motor &motor;
 };
 
 #endif
