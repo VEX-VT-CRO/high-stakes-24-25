@@ -61,20 +61,12 @@ constexpr double ODOM_WHEEL_DIAMETER = 0.087890625;
 constexpr double HORIZONTAL_WHEEL_DISTANCE = 2.0625;
 constexpr double VERTICAL_WHEEL_DISTANCE = 2.4375;
 
-<<<<<<< HEAD
-constexpr double ODOM_WHEEL_DIAMETER = 2;
-constexpr double HORIZONTAL_WHEEL_DISTANCE = 1.5625;
-constexpr double VERTICAL_WHEEL_DISTANCE = -4.0625;
-
-constexpr char SOLENOID = 'A';
-=======
 constexpr char CLAMP_SOLENOID = 'G';
 constexpr char WING_SOLENOID = 'H';
 constexpr char HORIZONTAL_POD_PORT_1 = 'C';
 constexpr char HORIZONTAL_POD_PORT_2 = 'D';
 constexpr char VERTICAL_POD_PORT_1 = 'E';
 constexpr char VERTICAL_POD_PORT_2 = 'F';
->>>>>>> 5c5038d6ae838a48e02e3a0077aeb0562073967b
 
 pros::Controller driver(pros::controller_id_e_t::E_CONTROLLER_MASTER);
 
@@ -82,12 +74,8 @@ RobotState robotState = RobotState::Driving;
 AllianceColor alliance_color = AllianceColor::No_Ring;
 
 // MOTORS and PNEUMATICS
-<<<<<<< HEAD
-pros::adi::DigitalOut solenoid(SOLENOID);
-=======
 pros::adi::DigitalOut clamp_solenoid(CLAMP_SOLENOID);
 pros::adi::DigitalOut wing_solenoid(WING_SOLENOID);
->>>>>>> 5c5038d6ae838a48e02e3a0077aeb0562073967b
 
 pros::MotorGroup leftSide({-FRONT_LEFT_PORT, -MIDDLE_FRONT_LEFT_PORT, -MIDDLE_BACK_LEFT_PORT, -BACK_LEFT_PORT});
 pros::MotorGroup rightSide({FRONT_RIGHT_PORT, MIDDLE_FRONT_RIGHT_PORT, MIDDLE_BACK_RIGHT_PORT, BACK_RIGHT_PORT});
@@ -151,14 +139,9 @@ lemlib::OdomSensors sensors(
 lemlib::Chassis chassis(LLDrivetrain, linearController, angularController, sensors);
 
 RollerIntake ri(riGroup);
-<<<<<<< HEAD
-Indexer ind(solenoid);
-Climb climb(climbGroup);
-=======
 Indexer ind(clamp_solenoid, wing_solenoid);
 SideStakes sideStakes(sideStakesGroup);
 Conveyor conveyor(conveyorGroup);
->>>>>>> 5c5038d6ae838a48e02e3a0077aeb0562073967b
 /**
  * Runs initialization code. This occurs as soon as the program is started.
  *
@@ -344,45 +327,6 @@ void pollController()
 		ind.openClamp();
 	}
 
-<<<<<<< HEAD
-	if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R1))
-	{
-		ind.toggle();
-	}
-
-	if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_A))
-	{
-		if (robotState != RobotState::Climbing)
-		{
-			robotState = RobotState::Climbing;
-			setcurrentstate(robotState);
-		}
-		climb.moveClimb(-12000);
-	}
-	else if (driver.get_digital(pros::E_CONTROLLER_DIGITAL_LEFT))
-	{
-		if (robotState != RobotState::Climbing)
-		{
-			robotState = RobotState::Climbing;
-			setcurrentstate(robotState);
-		}
-		climb.moveClimb(12000);
-	}
-	else if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R2))
-	{
-		if (robotState != RobotState::Climbing)
-		{
-			robotState = RobotState::Climbing;
-			setcurrentstate(robotState);
-		}
-		climb.deployClimb_J();
-		auto_climb_state = true;
-	}
-	else
-	{
-		climb.moveClimb(0);
-	}
-=======
 	if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_DOWN))
 	{
 		ind.openWing();
@@ -404,7 +348,6 @@ void pollController()
     	ssSeqIndex = (ssSeqIndex + 1) % sequenceLength;
     	sideStakes.moveTo(ssSequence[ssSeqIndex], rotationSensor);
 }
->>>>>>> 5c5038d6ae838a48e02e3a0077aeb0562073967b
 
 	if (!driver.get_digital(pros::E_CONTROLLER_DIGITAL_L1) &&
 		!driver.get_digital(pros::E_CONTROLLER_DIGITAL_L2) &&
@@ -550,4 +493,31 @@ void opcontrol()
 		allianceColor();
 		pros::delay(10);
 	}
+}
+
+//the autonomus path code
+void auto_march()
+{
+	setcurrentstate(RobotState::Autonomous);
+	chassis.setPose({-157.1, 148.1, 0}); //the starting poisition
+	pros::delay(1000);
+	// ind.openWing();
+	chassis.moveToPoint(-119.7, 119.69, 2000, {false}, false); //ring 1
+	chassis.turnToHeading(90,2000); //rotates 90 to the mobile post
+	chassis.moveToPoint(-59.9, 119.7, 2000, {false}, false); //moves to the mobile post
+	chassis.turnToHeading(90,2000); // roates 90 to the 2nd ring
+	chassis.moveToPoint(-60, 60, 2000, {false}, false);//2nd ring
+	chassis.turnToHeading(90,2000); //rotates 90 to the third ring
+	chassis.moveToPoint(0.96, 122.2, 2000, {false}, false); //ring 3
+	chassis.moveToPoint(-1.04, 149.1, 2000, {false}, false); //ring 4
+
+	//reject blue method
+
+	chassis.turnToHeading(270,2000); // roates 90 to the 5th ring
+	chassis.moveToPoint(-169.5, 169.04, 2000, {false}, false);//5th ring
+
+	
+	ind.openClamp();
+
+
 }
