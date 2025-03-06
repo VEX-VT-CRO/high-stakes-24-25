@@ -54,25 +54,26 @@ constexpr int8_t CONVEYOR_LIFT_RIGHT_FRONT_PORT = 4;
 constexpr int8_t CONVEYOR_LIFT_LEFT_BACK_PORT = 14;
 constexpr int8_t CONVEYOR_LIFT_RIGHT_BACK_PORT = 5;
 
-constexpr char HORIZONTAL_POD_PORT_1 = 'F';
-constexpr char HORIZONTAL_POD_PORT_2 = 'E';
-constexpr char VERTICAL_POD_PORT_1 = 'H';
-constexpr char VERTICAL_POD_PORT_2 = 'G';
+constexpr char HORIZONTAL_POD_PORT_1 = 'H';
+constexpr char HORIZONTAL_POD_PORT_2 = 'G';
+constexpr char VERTICAL_POD_PORT_1 = 'F';
+constexpr char VERTICAL_POD_PORT_2 = 'E';
 constexpr int8_t GYRO_PORT_TOP = 8;
 constexpr int8_t GYRO_PORT_BOTTOM = 10;
 
 constexpr double TRACK_WIDTH = 12;
 constexpr double WHEEL_DIAMETER = 2.75;
 constexpr double DRIVE_RPM = 600;
-constexpr double CHASE_POWER = 1.115;
+constexpr double CHASE_POWER = 0.89686;
 
 constexpr double ODOM_WHEEL_DIAMETER = 0.087890625;
-constexpr double HORIZONTAL_WHEEL_DISTANCE = -1;
-constexpr double VERTICAL_WHEEL_DISTANCE = -0.8;
+constexpr double HORIZONTAL_WHEEL_DISTANCE = -1.238;
+constexpr double VERTICAL_WHEEL_DISTANCE = -0.674;
 
 constexpr char STOPPER_SOLENOID_FRONT = 'C';
 constexpr char STOPPER_SOLENOID_BACK = 'D';
 constexpr char HOLDER_SOLENOID = 'B';
+constexpr char MOVER_SOLENOID = 'A';
 
 pros::Controller driver(pros::controller_id_e_t::E_CONTROLLER_MASTER);
 
@@ -84,7 +85,21 @@ RiseControl riserControl = RiseControl::Front;
 pros::adi::DigitalOut stopper_solenoid_front(STOPPER_SOLENOID_FRONT);
 pros::adi::DigitalOut stopper_solenoid_back(STOPPER_SOLENOID_BACK);
 pros::adi::DigitalOut holder_solenoid(HOLDER_SOLENOID);
+pros::adi::DigitalOut mover_solenoid(MOVER_SOLENOID);
 
+pros::Motor frontLeft(FRONT_LEFT_PORT);
+pros::Motor middleLeft(MIDDLE_LEFT_PORT);
+pros::Motor backLeft(-BACK_LEFT_PORT);
+pros::Motor frontRight(-FRONT_RIGHT_PORT);
+pros::Motor middleRight(-MIDDLE_RIGHT_PORT);
+pros::Motor backRight(BACK_RIGHT_PORT);
+static bool _motor_init = []()
+{
+	int voltage = 12000 * 16 / 22;
+	backLeft.set_voltage_limit(voltage);
+	backRight.set_voltage_limit(voltage);
+	return true;
+}();
 pros::MotorGroup leftSide({FRONT_LEFT_PORT, MIDDLE_LEFT_PORT, -BACK_LEFT_PORT});
 pros::MotorGroup rightSide({-FRONT_RIGHT_PORT, -MIDDLE_RIGHT_PORT, BACK_RIGHT_PORT});
 pros::Motor intake(INTAKE_PORT);
@@ -96,7 +111,7 @@ pros::Motor conveyorMotor(CONVEYOR_PORT);
 
 // SENSORS
 pros::adi::Encoder horizontalPod(HORIZONTAL_POD_PORT_1, HORIZONTAL_POD_PORT_2, true);
-pros::adi::Encoder verticalPod(VERTICAL_POD_PORT_1, VERTICAL_POD_PORT_2, true);
+pros::adi::Encoder verticalPod(VERTICAL_POD_PORT_1, VERTICAL_POD_PORT_2, false);
 pros::IMU gyro_top(GYRO_PORT_TOP);
 pros::IMU gyro_bottom(GYRO_PORT_BOTTOM);
 MergedIMU gyro(&gyro_top, &gyro_bottom, true);
@@ -115,27 +130,27 @@ lemlib::Drivetrain LLDrivetrain(
 	CHASE_POWER);
 
 lemlib::ControllerSettings linearController(
-	0, // proportional gain (kP)
-	0, // integral gain (kI)
-	0, // derivative gain (kD)
-	0, // anti windup
-	0, // small error range, in inches
-	0, // small error range timeout, in milliseconds
-	0, // large error range, in inches
-	0, // large error range timeout, in milliseconds
-	0  // maximum acceleration (slew)
+	20,	 // proportional gain (kP)
+	0,	 // integral gain (kI)
+	150, // derivative gain (kD)
+	0,	 // anti windup
+	0.5, // small error range, in inches
+	50,	 // small error range timeout, in milliseconds
+	1.5, // large error range, in inches
+	200, // large error range timeout, in milliseconds
+	20	 // maximum acceleration (slew)
 );
 
 lemlib::ControllerSettings angularController(
-	7,	// proportional gain (kP)
-	0,	// integral gain (kI)
-	50, // derivative gain (kD)
-	0,	// anti windup
-	0,	// small error range, in degrees
-	0,	// small error range timeout, in milliseconds
-	0,	// large error range, in degrees
-	0,	// large error range timeout, in milliseconds
-	0	// maximum acceleration (slew)
+	6.5, // proportional gain (kP)
+	0,	 // integral gain (kI)
+	52,	 // derivative gain (kD)
+	0,	 // anti windup
+	2,	 // small error range, in degrees
+	50,	 // small error range timeout, in milliseconds
+	5,	 // large error range, in degrees
+	150, // large error range timeout, in milliseconds
+	0	 // maximum acceleration (slew)
 );
 
 lemlib::OdomSensors sensors(
@@ -148,7 +163,7 @@ lemlib::OdomSensors sensors(
 lemlib::Chassis chassis(LLDrivetrain, linearController, angularController, sensors);
 
 RollerIntake ri(intake);
-Indexer ind(holder_solenoid);
+Indexer ind(holder_solenoid, mover_solenoid);
 ConveyorLift conveyorlift(conveyorLiftLeftFront, conveyorLiftRightFront, conveyorLiftLeftBack, conveyorLiftRightBack, stopper_solenoid_front, stopper_solenoid_back);
 Conveyor conveyor(conveyorMotor);
 /**
@@ -462,7 +477,11 @@ void pollController()
 		allianceMode = !allianceMode;
 	}
 
-	// Y is not being used for anything in this new design
+	// Y button toggles the mover
+	if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_Y))
+	{
+		ind.openMover();
+	}
 }
 
 void toggle()
@@ -555,16 +574,44 @@ void moveConveyorLiftTo(ConveyorLift &conveyorLift, ConveyorPosition fromPos, Co
 		conveyorLift.openStopperBack();
 		conveyorLift.openStopperFront();
 		pros::delay(130);
-		conveyorLift.motor_back_left.move_relative(-20, 100);
-		conveyorLift.motor_back_right.move_relative(-20, 100);
-		pros::delay(100);
+		// conveyorLift.motor_back_left.move_relative(-20, 100);
+		// conveyorLift.motor_back_right.move_relative(-20, 100);
+		// pros::delay(100);
 		conveyorLift.motor_back_left.move_relative(380, 100);
 		conveyorLift.motor_back_right.move_relative(380, 100);
 		pros::delay(100);
-		conveyorLift.motor_front_left.move_relative(380, 100);
-		conveyorLift.motor_front_right.move_relative(380, 100);
+		conveyorLift.motor_front_left.move_relative(370, 100);
+		conveyorLift.motor_front_right.move_relative(370, 100);
 		pros::delay(900);
 		conveyorLift.openStopperFront();
+		conveyorLift.motor_back_left.move_voltage(6000);
+		conveyorLift.motor_back_right.move_voltage(6000);
+		pros::delay(250);
+		conveyorLift.openStopperBack();
+		conveyorLift.motor_back_left.move_voltage(0);
+		conveyorLift.motor_back_right.move_voltage(0);
+	}
+	else if (fromPos == ALLIANCE && toPos == MOGO)
+	{
+		conveyorLift.openStopperFront();
+		conveyorLift.openStopperBack();
+		pros::delay(100);
+		conveyorLift.motor_back_left.move_relative(-80, 100);
+		conveyorLift.motor_back_right.move_relative(-80, 100);
+		conveyorLift.motor_front_left.move_relative(-80, 100);
+		conveyorLift.motor_front_right.move_relative(-80, 100);
+		pros::delay(200);
+		conveyorLift.motor_back_left.move_voltage(-6000);
+		conveyorLift.motor_back_right.move_voltage(-6000);
+		conveyorLift.motor_front_left.move_voltage(-6000);
+		conveyorLift.motor_front_right.move_voltage(-6000);
+		pros::delay(300);
+		conveyorLift.openStopperFront();
+		conveyorLift.motor_front_left.move_voltage(0);
+		conveyorLift.motor_front_right.move_voltage(0);
+		conveyorLift.motor_back_left.move_absolute(150, 150);
+		conveyorLift.motor_back_right.move_absolute(150, 150);
+		pros::delay(500);
 		conveyorLift.motor_back_left.move_voltage(6000);
 		conveyorLift.motor_back_right.move_voltage(6000);
 		pros::delay(200);
@@ -572,17 +619,36 @@ void moveConveyorLiftTo(ConveyorLift &conveyorLift, ConveyorPosition fromPos, Co
 		conveyorLift.motor_back_left.move_voltage(0);
 		conveyorLift.motor_back_right.move_voltage(0);
 	}
-	else if (fromPos == ALLIANCE && toPos == MOGO)
-	{
-		// ALLIANCE to MOGO transition
-		// For now, empty placeholder
-		// Add implementation when ready
-	}
 	else if (fromPos == SIDE && toPos == MOGO)
 	{
-		// SIDE to MOGO transition
-		// For now, empty placeholder
-		// Add implementation when ready
+		conveyorLift.openStopperBack();
+		conveyorLift.openStopperFront();
+		pros::delay(130);
+		conveyorLift.motor_front_left.move_relative(30, 100);
+		conveyorLift.motor_front_right.move_relative(30, 100);
+		pros::delay(100);
+		conveyorLift.motor_back_left.move_relative(-530, 100);
+		conveyorLift.motor_back_right.move_relative(-530, 100);
+		conveyorLift.motor_front_left.move_relative(-400, 100);
+		conveyorLift.motor_front_right.move_relative(-400, 100);
+		pros::delay(500);
+		conveyorLift.motor_back_left.move_voltage(-6000);
+		conveyorLift.motor_back_right.move_voltage(-6000);
+		conveyorLift.motor_front_left.move_voltage(-6000);
+		conveyorLift.motor_front_right.move_voltage(-6000);
+		pros::delay(300);
+		conveyorLift.openStopperFront();
+		conveyorLift.motor_front_left.move_voltage(0);
+		conveyorLift.motor_front_right.move_voltage(0);
+		conveyorLift.motor_back_left.move_absolute(150, 150);
+		conveyorLift.motor_back_right.move_absolute(150, 150);
+		pros::delay(500);
+		conveyorLift.motor_back_left.move_voltage(6000);
+		conveyorLift.motor_back_right.move_voltage(6000);
+		pros::delay(200);
+		conveyorLift.openStopperBack();
+		conveyorLift.motor_back_left.move_voltage(0);
+		conveyorLift.motor_back_right.move_voltage(0);
 	}
 
 	// Return to previous state after movement is complete
@@ -614,8 +680,11 @@ ASSET(J_M_1_txt);
 
 void qualJ()
 {
-	chassis.setPose(0, 0, 0);
-	chassis.turnToHeading(90, 100000);
+	chassis.setPose(0, 0, 90);
+	chassis.moveToPoint(72, 0, 2000, {}, true);
+	chassis.turnToHeading(270, 1000);
+	chassis.moveToPoint(0, 0, 2000, {}, true);
+	chassis.turnToHeading(90, 1000);
 }
 
 // The match function has the main calls you would do for an autonomous routine besides the non-drivebase motor calls

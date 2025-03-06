@@ -8,6 +8,7 @@
 #include "subsystems/indexer.hpp"
 #include "subsystems/climb.hpp"
 #include "subsystems/conveyor.hpp"
+#include "subsystems/mergedIMU.hpp"
 
 // Two major definitions for each bot
 #define QUAL_AUTO
@@ -25,37 +26,39 @@ enum class RobotState
 
 // Initialize ports and key variables
 
-constexpr int8_t FRONT_LEFT_PORT = 7;
-constexpr int8_t MIDDLE_FRONT_LEFT_PORT = 8;
-constexpr int8_t MIDDLE_BACK_LEFT_PORT = 9;
-constexpr int8_t BACK_LEFT_PORT = 10;
-constexpr int8_t FRONT_RIGHT_PORT = 2;
-constexpr int8_t MIDDLE_FRONT_RIGHT_PORT = 3;
-constexpr int8_t MIDDLE_BACK_RIGHT_PORT = 4;
-constexpr int8_t BACK_RIGHT_PORT = 5;
+constexpr int8_t FRONT_LEFT_PORT = 2;
+constexpr int8_t MIDDLE_FRONT_LEFT_PORT = 3;
+constexpr int8_t MIDDLE_BACK_LEFT_PORT = 4;
+constexpr int8_t BACK_LEFT_PORT = 5;
+constexpr int8_t FRONT_RIGHT_PORT = 9;
+constexpr int8_t MIDDLE_FRONT_RIGHT_PORT = 8;
+constexpr int8_t MIDDLE_BACK_RIGHT_PORT = 6;
+constexpr int8_t BACK_RIGHT_PORT = 7;
 
-constexpr int8_t INTAKE_PORT = 6;
+constexpr int8_t INTAKE_PORT = 19;
 constexpr int8_t CONVEYOR_PORT = 1;
 
-constexpr int8_t HORIZONTAL_POD_PORT = 30;
-constexpr int8_t VERTICAL_POD_PORT = 31;
-constexpr int8_t GYRO_PORT = 32;
+constexpr char HORIZONTAL_POD_PORT_1 = 'A';
+constexpr char HORIZONTAL_POD_PORT_2 = 'B';
+constexpr char VERTICAL_POD_PORT_1 = 'F';
+constexpr char VERTICAL_POD_PORT_2 = 'G';
+constexpr int8_t GYRO_PORT_TOP = 17;
+constexpr int8_t GYRO_PORT_BOTTOM = 16;
 
-constexpr double TRACK_WIDTH = 12;
-constexpr double WHEEL_DIAMETER = 3;
+constexpr double TRACK_WIDTH = 11.85;
+constexpr double WHEEL_DIAMETER = 2.75;
 constexpr double DRIVE_RPM = 600;
-constexpr double CHASE_POWER = 2;
+constexpr double CHASE_POWER = 1;
 
-constexpr double ODOM_WHEEL_DIAMETER = 2;
-constexpr double HORIZONTAL_WHEEL_DISTANCE = 1.5625;
-constexpr double VERTICAL_WHEEL_DISTANCE = -4.0625;
+constexpr double ODOM_WHEEL_DIAMETER = 0.087890625;
+constexpr double HORIZONTAL_WHEEL_DISTANCE = -1.522;
+constexpr double VERTICAL_WHEEL_DISTANCE = -0.668;
 
 constexpr char CLAMP_SOLENOID = 'H';
 
 pros::Controller driver(pros::controller_id_e_t::E_CONTROLLER_MASTER);
 
 RobotState robotState = RobotState::Driving;
-
 
 // MOTORS and PNEUMATICS
 pros::adi::DigitalOut clamp_solenoid(CLAMP_SOLENOID);
@@ -66,9 +69,11 @@ pros::MotorGroup riGroup({INTAKE_PORT});
 pros::MotorGroup conveyorGroup({CONVEYOR_PORT});
 
 // SENSORS
-pros::Rotation horizontalPod(HORIZONTAL_POD_PORT);
-pros::Rotation verticalPod(-VERTICAL_POD_PORT);
-pros::IMU gyro(GYRO_PORT);
+pros::adi::Encoder horizontalPod(HORIZONTAL_POD_PORT_1, HORIZONTAL_POD_PORT_2, true);
+pros::adi::Encoder verticalPod(VERTICAL_POD_PORT_1, VERTICAL_POD_PORT_2, false);
+pros::IMU gyro_top(GYRO_PORT_TOP);
+pros::IMU gyro_bottom(GYRO_PORT_BOTTOM);
+MergedIMU gyro(&gyro_top, &gyro_bottom, true);
 
 // LEMLIB STRUCTURES
 
@@ -108,11 +113,11 @@ lemlib::ControllerSettings angularController(
 );
 
 lemlib::OdomSensors sensors(
+	&verticalWheel,
 	nullptr,
+	&horizontalWheel,
 	nullptr,
-	nullptr,
-	nullptr,
-	nullptr);
+	&gyro);
 
 lemlib::Chassis chassis(LLDrivetrain, linearController, angularController, sensors);
 
@@ -276,64 +281,63 @@ ASSET(J_M_1_txt);
 void qualJ()
 {
 	const double ROTATION_FACTOR = 1.0 / (2.75 * 3.14);
-    //43.86 / (2.75 * 3.14)
-    leftSide.set_encoder_units_all(pros::motor_encoder_units_e_t::E_MOTOR_ENCODER_ROTATIONS);
-    rightSide.set_encoder_units_all(pros::motor_encoder_units_e_t::E_MOTOR_ENCODER_ROTATIONS);
-    leftSide.move_relative(-60 * ROTATION_FACTOR, 600);
-    rightSide.move_relative(-60 * ROTATION_FACTOR, 600);
+	// 43.86 / (2.75 * 3.14)
+	leftSide.set_encoder_units_all(pros::motor_encoder_units_e_t::E_MOTOR_ENCODER_ROTATIONS);
+	rightSide.set_encoder_units_all(pros::motor_encoder_units_e_t::E_MOTOR_ENCODER_ROTATIONS);
+	leftSide.move_relative(-60 * ROTATION_FACTOR, 600);
+	rightSide.move_relative(-60 * ROTATION_FACTOR, 600);
 
-    leftSide.brake();
-    rightSide.brake();
+	leftSide.brake();
+	rightSide.brake();
 
-    pros::delay(250);
-    ind.openClamp();
-    pros::delay(750);
+	pros::delay(250);
+	ind.openClamp();
+	pros::delay(750);
 
-    leftSide.move_relative(30 * ROTATION_FACTOR, 600);
-    rightSide.move_relative(30 * ROTATION_FACTOR, 600);
+	leftSide.move_relative(30 * ROTATION_FACTOR, 600);
+	rightSide.move_relative(30 * ROTATION_FACTOR, 600);
 
-    leftSide.brake();
-    rightSide.brake();
+	leftSide.brake();
+	rightSide.brake();
 }
 
-void pickUpRing() {
-
+void pickUpRing()
+{
 }
 
-void scoreRing() {
-
+void scoreRing()
+{
 }
 
 void pickUpMobileGoal()
 {
-
 }
 // The match function has the main calls you would do for an autonomous routine besides the non-drivebase motor calls
 void matchJ()
 {
-	//Reset to start position.
+	// Reset to start position.
 	chassis.setPose({-34, -64, 0});
 	pros::delay(100);
-	//Drive to the mobile goal.
+	// Drive to the mobile goal.
 	chassis.moveToPoint(-51.931, -6.478, 3000);
 	pickUpMobileGoal();
 	scoreRing();
-	//Turn to the ring stack.
+	// Turn to the ring stack.
 	chassis.turnToHeading(270, 2000);
 	chassis.moveToPoint(-57.379, -5.086, 3000);
 	pickUpRing();
 	scoreRing();
-	//Drive back to the farther ring stack.
+	// Drive back to the farther ring stack.
 	chassis.turnToHeading(180, 3000);
 	chassis.moveToPoint(-49.196, -40.273, 3000);
 	pickUpRing();
 	scoreRing();
-	//Drive to the red ring stack.
+	// Drive to the red ring stack.
 	chassis.turnToHeading(90, 2000);
 	chassis.moveToPoint(-29.405, -45.935, 3000);
 	pickUpRing();
 	scoreRing();
-	//Drive to the next ... ring stack.
+	// Drive to the next ... ring stack.
 	chassis.follow(J_M_1_txt, 30, 3500, {false});
 }
 /**
