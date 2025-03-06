@@ -1,11 +1,10 @@
 #include "subsystems/rollerIntake.hpp"
 
-RollerIntake::RollerIntake(pros::MotorGroup& m) : motors{m}
+RollerIntake::RollerIntake(pros::Motor &m) : motor{m}
 {
-    
 }
 
 void RollerIntake::spin(int mV)
 {
-    motors.move_voltage(mV);
+    motor.move_voltage(mV);
 }
