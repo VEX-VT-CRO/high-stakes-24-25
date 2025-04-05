@@ -11,8 +11,8 @@
 #include "subsystems/mergedIMU.hpp"
 
 // Two major definitions for each bot
-#define QUAL_AUTO
-// #define MATCH_AUTO
+// #define QUAL_AUTO
+#define MATCH_AUTO
 
 // #define ARCADE
 #define TANK
@@ -234,8 +234,8 @@ void initialize()
 	pros::lcd::initialize();
 	chassis.calibrate();
 
-	leftSide.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_COAST);
-	rightSide.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_COAST);
+	leftSide.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_BRAKE);
+	rightSide.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_BRAKE);
 	conveyorLiftLeftFront.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_BRAKE);
 	conveyorLiftRightFront.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_BRAKE);
 	conveyorLiftLeftBack.set_brake_mode_all(pros::motor_brake_mode_e_t::E_MOTOR_BRAKE_BRAKE);
@@ -307,13 +307,13 @@ void pollController()
 		{
 			// In MOGO mode, spin both intake and conveyor
 			ri.spin(ri.STANDARD_MV);
-			conveyorMotor.move_velocity(200);
+			conveyorMotor.move_velocity(160);
 		}
 		else if (conveyorlift.position == ALLIANCE || conveyorlift.position == SIDE)
 		{
 			// In ALLIANCE or SIDE mode, only spin the conveyor
 			ri.spin(0); // Ensure intake is off
-			conveyorMotor.move_velocity(200);
+			conveyorMotor.move_velocity(160);
 		}
 		else if (conveyorlift.position == STOCK)
 		{
@@ -336,13 +336,13 @@ void pollController()
 		{
 			// In MOGO mode, spin both intake and conveyor in reverse
 			ri.spin(-ri.STANDARD_MV);
-			conveyorMotor.move_velocity(-200);
+			conveyorMotor.move_velocity(-160);
 		}
 		else if (conveyorlift.position == ALLIANCE || conveyorlift.position == SIDE)
 		{
 			// In ALLIANCE or SIDE mode, only spin the conveyor in reverse
 			ri.spin(0); // Ensure intake is off
-			conveyorMotor.move_velocity(-200);
+			conveyorMotor.move_velocity(-160);
 		}
 		else if (conveyorlift.position == STOCK)
 		{
@@ -468,6 +468,32 @@ void pollController()
 		{
 			int nextValue = (static_cast<int>(riserControl) + 1) % 3;
 			riserControl = static_cast<RiseControl>(nextValue);
+		}
+	}
+	else
+	{
+		if (driver.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_DOWN))
+		{
+			chassis.setPose(-56.5, 0, 90);
+			toggle();
+			pros::delay(100);
+			conveyorMotor.move_velocity(130);
+			intake.move_velocity(600);
+			chassis.moveToPoint(-50.5, 0, 1100, {}, true);
+			pros::delay(1100);
+			conveyorMotor.move_velocity(0);
+			intake.move_velocity(0);
+			allianceMode = true;
+			toggle();
+			chassis.moveToPoint(-57.5, 0, 1000, {false}, true);
+			pros::delay(300);
+			conveyorMotor.move_velocity(130);
+			pros::delay(1300);
+			conveyorMotor.move_velocity(0);
+			chassis.moveToPoint(-55.5, 0, 1000, {}, true);
+			chassis.turnToHeading(135, 2500);
+			toggle();
+			pros::delay(400);
 		}
 	}
 
@@ -680,16 +706,231 @@ ASSET(J_M_1_txt);
 
 void qualJ()
 {
-	chassis.setPose(0, 0, 90);
-	chassis.moveToPoint(72, 0, 2000, {}, true);
-	chassis.turnToHeading(270, 1000);
-	chassis.moveToPoint(0, 0, 2000, {}, true);
-	chassis.turnToHeading(90, 1000);
+	chassis.setPose(-56.5, 0, 90);
+	toggle();
+	pros::delay(100);
+	conveyorMotor.move_velocity(130);
+	intake.move_velocity(600);
+	chassis.moveToPoint(-51.5, 0, 1000, {}, true);
+	pros::delay(1100);
+	conveyorMotor.move_velocity(0);
+	intake.move_velocity(0);
+	allianceMode = true;
+	toggle();
+	chassis.moveToPoint(-57.5, 0, 1000, {false}, true);
+	pros::delay(300);
+	conveyorMotor.move_velocity(130);
+	pros::delay(1000);
+	conveyorMotor.move_velocity(0);
+	chassis.moveToPoint(-55.5, 0, 1000, {}, true);
+	chassis.turnToHeading(135, 500);
+	toggle();
+	pros::delay(400);
+	conveyorMotor.move_velocity(130);
+	intake.move_velocity(600);
+	chassis.moveToPoint(-8.5, -34.5, 1900, {true, 60}, true);
+	pros::delay(1900);
+	conveyorMotor.move_velocity(0);
+	intake.move_velocity(0);
+	chassis.moveToPoint(-11.5, -32, 1000, {false, 60}, true);
+	chassis.turnToHeading(25, 1500, {AngularDirection::AUTO, 70}, false);
+	chassis.setPose({0, 0, 90});
+	chassis.moveToPoint(-20, 0, 1500, {false, 50}, true);
+	pros::delay(1200);
+	ind.openHolder();
+	conveyorMotor.move_velocity(130);
+	pros::delay(1500);
+	conveyorMotor.move_velocity(0);
+	chassis.moveToPoint(-16, 0, 1000, {true, 60}, true);
+	chassis.turnToHeading(160, 800, {}, false);
+	chassis.setPose({0, 0, 90});
+	conveyorMotor.move_velocity(130);
+	intake.move_velocity(600);
+	chassis.moveToPoint(20, 0, 2200, {true, 70}, true);
+	pros::delay(2200);
+	conveyorMotor.move_velocity(0);
+	intake.move_velocity(0);
+	chassis.moveToPoint(13, 0, 1000, {false, 60}, false);
+	chassis.setPose({0, 0, 90});
+	chassis.turnToHeading(150, 600, {}, false);
+	chassis.setPose({0, 0, 90});
+	chassis.moveToPoint(8, 0, 1000, {true}, false);
+	chassis.moveToPoint(4, 0, 400, {false, 60}, false);
+	intake.move_velocity(600);
+	conveyorMotor.move_velocity(130);
+	chassis.moveToPoint(11, 0, 1700, {true, 70}, true);
+	pros::delay(1700);
+	conveyorMotor.move_velocity(0);
+	intake.move_velocity(0);
+	chassis.moveToPoint(3, 0, 1500, {false, 70}, false);
+	chassis.setPose({0, 0, 90});
+	chassis.turnToHeading(204, 1300, {}, false);
+	chassis.setPose({0, 0, 90});
+	conveyorMotor.move_velocity(130);
+	intake.move_velocity(600);
+	chassis.moveToPoint(27, 0, 2500, {}, false);
+	pros::delay(1000);
+	conveyorMotor.move_velocity(0);
+	intake.move_velocity(0);
+	chassis.setPose({0, 0, 90});
+	chassis.turnToHeading(108, 800, {}, false);
+	conveyorMotor.move_velocity(130);
+	intake.move_velocity(600);
+	chassis.setPose({0, 0, 90});
+	chassis.moveToPoint(20, 0, 2000, {true, 70}, false);
+	pros::delay(2000);
+	conveyorMotor.move_velocity(0);
+	intake.move_velocity(0);
+	chassis.setPose({0, 0, 90});
+	chassis.turnToHeading(60, 1000, {}, false);
+	chassis.setPose({0, 0, 90});
+	chassis.moveToPoint(6, 0, 2000, {true, 70}, false);
+	chassis.turnToHeading(34, 1500, {}, false);
+	// chassis.moveToPoint(12, 0, 1000, {true, 60}, false);
+	// chassis.turnToHeading(5, 800, {}, false);
+	// conveyorMotor.move_velocity(140);
+	// intake.move_velocity(600);
+	// chassis.setPose({0, 0, 90});
+	// chassis.moveToPoint(12.5, 0, 1700, {true, 60}, false);
+	// pros::delay(1700);
+	// conveyorMotor.move_velocity(0);
+	// intake.move_velocity(0);
+	// ind.openMover();
+	// pros::delay(200);
+	// chassis.setPose({0, 0, 90});
+	// chassis.turnToHeading(55, 1000, {}, false);
+	// chassis.turnToHeading(70, 1400, {}, false);
+	// ind.openMover();
+	// pros::delay(200);
+	// chassis.setPose({0, 0, 90});
+	// conveyorMotor.move_velocity(140);
+	// intake.move_velocity(600);
+	// chassis.moveToPoint(6, 0, 1000, {true, 60}, false);
+	// pros::delay(1000);
+	// conveyorMotor.move_velocity(0);
+	// intake.move_velocity(0);
+	// chassis.setPose({0, 0, 90});
+	// chassis.moveToPoint(-7, 0, 1200, {false, 80}, false);
+	// chassis.turnToHeading(135, 1000, {}, false);
+	// chassis.setPose({0, 0, 90});
+	// chassis.moveToPoint(-10, 0, 1500, {false, 60}, false);
+	// chassis.turnToHeading(250, 1500, {}, false);
+	// chassis.setPose({0, 0, 90});
+	// chassis.moveToPoint(-12, 0, 1500, {false, 60}, false);
+	// ind.openHolder();
+	// pros::delay(200);
+	// chassis.moveToPoint(0, 0, 1500, {true, 60}, false);
 }
 
 // The match function has the main calls you would do for an autonomous routine besides the non-drivebase motor calls
 void matchJ()
 {
+	// Score on alliance stake
+	chassis.setPose(-56.5, 0, 90);
+	toggle();
+	pros::delay(100);
+	conveyorMotor.move_velocity(130);
+	intake.move_velocity(600);
+	chassis.moveToPoint(-50.5, 0, 1100, {}, true);
+	pros::delay(1100);
+	conveyorMotor.move_velocity(0);
+	intake.move_velocity(0);
+	allianceMode = true;
+	toggle();
+	chassis.moveToPoint(-57.5, 0, 1000, {false}, true);
+	pros::delay(300);
+	conveyorMotor.move_velocity(130);
+	pros::delay(1300);
+	conveyorMotor.move_velocity(0);
+	chassis.moveToPoint(-55.5, 0, 1000, {}, true);
+	chassis.turnToHeading(135, 2500);
+	toggle();
+	pros::delay(400);
+	// Go and pick up ring
+	conveyorMotor.move_velocity(130);
+	intake.move_velocity(600);
+	chassis.moveToPoint(-8.5, -34.5, 1900, {true, 50}, true);
+	pros::delay(2200);
+	conveyorMotor.move_velocity(0);
+	intake.move_velocity(0);
+	chassis.moveToPoint(-11.5, -32, 1000, {false, 50}, true);
+	chassis.turnToHeading(25, 2500, {AngularDirection::CCW_COUNTERCLOCKWISE, 50}, false);
+	chassis.setPose({0, 0, 90});
+	chassis.moveToPoint(-20, 0, 1500, {false, 50}, true);
+	pros::delay(1200);
+	ind.openHolder();
+	conveyorMotor.move_velocity(130);
+	pros::delay(1500);
+	conveyorMotor.move_velocity(0);
+	// Prepare to get third ring
+	chassis.moveToPoint(-13, 0, 1000, {true, 50}, true);
+	chassis.turnToHeading(33, 2500, {}, false);
+	chassis.setPose({0, 0, 90});
+	chassis.moveToPoint(-8, 0, 3000, {false, 50}, true);
+	chassis.turnToHeading(204, 3500, {}, false);
+	chassis.setPose({0, 0, 90});
+	conveyorMotor.move_velocity(130);
+	intake.move_velocity(600);
+	chassis.moveToPoint(13, 0, 2500, {}, false);
+	pros::delay(1500);
+	conveyorMotor.move_velocity(0);
+	intake.move_velocity(0);
+	// Go for fourth ring
+	chassis.moveToPoint(0, 0, 2000, {false, 50}, false);
+	chassis.turnToHeading(130, 1000, {}, false);
+	chassis.setPose({0, 0, 90});
+	chassis.moveToPoint(10, 0, 1500, {true, 50}, false);
+	chassis.moveToPoint(4, 0, 400, {false, 50}, false);
+	intake.move_velocity(600);
+	conveyorMotor.move_velocity(130);
+	chassis.moveToPoint(14, 0, 1700, {true, 50}, true);
+	pros::delay(2100);
+	conveyorMotor.move_velocity(0);
+	intake.move_velocity(0);
+	// Prepare to giet another ring
+	chassis.moveToPoint(-25, 0, 6000, {false, 50}, false);
+	chassis.turnToHeading(186, 2500, {}, false);
+	chassis.setPose({0, 0, 90});
+	conveyorMotor.move_velocity(130);
+	intake.move_velocity(600);
+	chassis.moveToPoint(15, 0, 2500, {true, 50}, true);
+	pros::delay(3000);
+	conveyorMotor.move_velocity(0);
+	intake.move_velocity(0);
+	// Place mobile goal in corner
+	chassis.setPose({0, 0, 90});
+	chassis.turnToHeading(270, 2500, {}, false);
+	pros::delay(500);
+	ind.openHolder();
+	chassis.setPose({0, 0, 90});
+	chassis.moveToPoint(-20, 0, 2000, {false, 100}, false);
+	chassis.moveToPoint(0, 0, 2000, {true, 50}, false);
+	chassis.turnToHeading(140, 2500, {AngularDirection::CW_CLOCKWISE, 60}, false);
+	chassis.setPose({0, 0, 90});
+	chassis.moveToPoint(-21, 0, 2500, {false, 60}, false);
+	chassis.setPose({0, 0, 90});
+	chassis.moveToPoint(72, 0, 4000, {true, 60}, false);
+	chassis.turnToHeading(225, 2500, {AngularDirection::CW_CLOCKWISE, 60}, false);
+	chassis.setPose({0, 0, 90});
+	chassis.moveToPoint(-24, 0, 3000, {false, 60}, true);
+	pros::delay(1500);
+	ind.openHolder();
+	pros::delay(1500);
+	chassis.setPose({0, 0, 90});
+	chassis.turnToHeading(45, 1500, {}, false);
+	chassis.setPose({0, 0, 90});
+	chassis.moveToPoint(16, 0, 2000, {true, 60}, false);
+	chassis.moveToPoint(8, 0, 400, {false, 60}, false);
+	intake.move_velocity(600);
+	conveyorMotor.move_velocity(130);
+	chassis.moveToPoint(18, 0, 1700, {true, 70}, true);
+	pros::delay(2100);
+	conveyorMotor.move_velocity(0);
+	intake.move_velocity(0);
+	chassis.setPose({0, 0, 90});
+	chassis.turnToHeading(210, 2500, {AngularDirection::CW_CLOCKWISE, 127}, false);
+	chassis.setPose({0, 0, 90});
+	chassis.moveToPoint(-40, 0, 4000, {false, 127}, false);
 }
 
 void autonomous_skills()
@@ -725,7 +966,6 @@ void autonomous_skills()
  */
 void autonomous()
 {
-	pros::Task intakeTask(autoIntakeManager);
 #if defined(QUAL_AUTO)
 	qualJ();
 #elif defined(MATCH_AUTO)

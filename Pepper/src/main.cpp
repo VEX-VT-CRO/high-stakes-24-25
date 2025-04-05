@@ -38,12 +38,12 @@ constexpr int8_t BACK_RIGHT_PORT = 7;
 constexpr int8_t INTAKE_PORT = 19;
 constexpr int8_t CONVEYOR_PORT = 1;
 
-constexpr char HORIZONTAL_POD_PORT_1 = 'A';
-constexpr char HORIZONTAL_POD_PORT_2 = 'B';
-constexpr char VERTICAL_POD_PORT_1 = 'F';
+constexpr char HORIZONTAL_POD_PORT_1 = 'B';
+constexpr char HORIZONTAL_POD_PORT_2 = 'A';
+constexpr char VERTICAL_POD_PORT_1 = 'H';
 constexpr char VERTICAL_POD_PORT_2 = 'G';
 constexpr int8_t GYRO_PORT_TOP = 17;
-constexpr int8_t GYRO_PORT_BOTTOM = 16;
+constexpr int8_t GYRO_PORT_BOTTOM = 10;
 
 constexpr double TRACK_WIDTH = 11.85;
 constexpr double WHEEL_DIAMETER = 2.75;
@@ -54,7 +54,7 @@ constexpr double ODOM_WHEEL_DIAMETER = 0.087890625;
 constexpr double HORIZONTAL_WHEEL_DISTANCE = -1.522;
 constexpr double VERTICAL_WHEEL_DISTANCE = -0.668;
 
-constexpr char CLAMP_SOLENOID = 'H';
+constexpr char CLAMP_SOLENOID = 'D';
 
 pros::Controller driver(pros::controller_id_e_t::E_CONTROLLER_MASTER);
 
